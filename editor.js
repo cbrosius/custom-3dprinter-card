@@ -134,6 +134,7 @@ class PrusaCardEditor extends LitElement {
     super();
     this._config = {};
     this._helpersLoaded = false;
+    this._loadingError = null;
   }
 
   async firstUpdated() {
@@ -144,12 +145,24 @@ class PrusaCardEditor extends LitElement {
   }
 
   async _waitForHui() {
-    // Wait for ha-entity-picker to be defined
-    if (!customElements.get('ha-entity-picker')) {
-      await customElements.whenDefined('ha-entity-picker');
-    }
-    // Small delay to ensure all HA UI components are ready
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for multiple HA UI components to be defined
+    const elements = [
+      'ha-entity-picker',
+      'ha-device-picker',
+      'ha-textfield',
+      'ha-icon-picker'
+    ];
+    
+    // Check which elements are already defined
+    const missingElements = elements.filter(el => !customElements.get(el));
+    
+    // Wait for all missing elements
+    await Promise.all(
+      missingElements.map(el => customElements.whenDefined(el))
+    );
+    
+    // Additional delay to ensure all HA UI components are ready
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
 
   setConfig(config) {
@@ -465,16 +478,25 @@ class PrusaCardEditor extends LitElement {
 
           <div class="field">
             <label class="field-label">Oder: Prusa Status Entity</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.job_sensor || ""}
-              .includeDomains=${["sensor", "binary_sensor"]}
-              name="job_sensor"
-              @value-changed=${(ev) => {
-                this._valueChanged(ev);
-                this._entityChanged(ev);
-              }}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.job_sensor || ""}
+                .includeDomains=${["sensor", "binary_sensor"]}
+                name="job_sensor"
+                @value-changed=${(ev) => {
+                  this._valueChanged(ev);
+                  this._entityChanged(ev);
+                }}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="job_sensor"
+                .value=${this._config.job_sensor || ""}
+                placeholder="sensor.prusa_mk4_job"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
             <div class="field-help">
               Alternativ: Wähle irgendeine PrusaLink Entity (z.B. sensor.prusa_mk4_job)
             </div>
@@ -503,13 +525,24 @@ class PrusaCardEditor extends LitElement {
           </div>
           <div class="field">
             <label class="field-label">Kamera-Entität</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.camera || ""}
-              .includeDomains=${["camera"]}
-              name="camera"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.camera || ""}
+                .includeDomains=${["camera"]}
+                .entityFilter=${(entity) => entity?.entity_id?.startsWith("camera.")}
+                name="camera"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="camera"
+                .value=${this._config.camera || ""}
+                placeholder="camera.mein_drucker"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+              <div class="field-help">Entitäts-ID eingeben (z.B. camera.mein_drucker)</div>
+            `}
           </div>
         </div>
 
@@ -521,13 +554,22 @@ class PrusaCardEditor extends LitElement {
           </div>
           <div class="field">
             <label class="field-label">Power-Schalter Entität</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.power_switch || ""}
-              .includeDomains=${["switch", "input_boolean"]}
-              name="power_switch"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.power_switch || ""}
+                .includeDomains=${["switch", "input_boolean"]}
+                name="power_switch"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="power_switch"
+                .value=${this._config.power_switch || ""}
+                placeholder="switch.prusa_power"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
             <div class="field-help">Schalter zum Ein-/Ausschalten der Drucker-Spannungsversorgung</div>
           </div>
         </div>
@@ -541,24 +583,42 @@ class PrusaCardEditor extends LitElement {
           
           <div class="field">
             <label class="field-label">Druckbett-Temperatur</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.bed_temp_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="bed_temp_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.bed_temp_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="bed_temp_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="bed_temp_sensor"
+                .value=${this._config.bed_temp_sensor || ""}
+                placeholder="sensor.prusa_bed_temperature"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
 
           <div class="field">
             <label class="field-label">Nozzle-Temperatur</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.nozzle_temp_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="nozzle_temp_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.nozzle_temp_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="nozzle_temp_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="nozzle_temp_sensor"
+                .value=${this._config.nozzle_temp_sensor || ""}
+                placeholder="sensor.prusa_tool0_temperature"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
         </div>
 
@@ -571,68 +631,122 @@ class PrusaCardEditor extends LitElement {
           
           <div class="field">
             <label class="field-label">Fortschritt (%)</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.progress_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="progress_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.progress_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="progress_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="progress_sensor"
+                .value=${this._config.progress_sensor || ""}
+                placeholder="sensor.prusa_progress"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
 
           <div class="field">
             <label class="field-label">Laufzeit</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.time_elapsed_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="time_elapsed_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.time_elapsed_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="time_elapsed_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="time_elapsed_sensor"
+                .value=${this._config.time_elapsed_sensor || ""}
+                placeholder="sensor.prusa_time_elapsed"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
 
           <div class="field">
             <label class="field-label">Restlaufzeit</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.time_remaining_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="time_remaining_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.time_remaining_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="time_remaining_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="time_remaining_sensor"
+                .value=${this._config.time_remaining_sensor || ""}
+                placeholder="sensor.prusa_time_remaining"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
 
           <div class="field">
             <label class="field-label">Aktueller Layer</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.current_layer_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="current_layer_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.current_layer_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="current_layer_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="current_layer_sensor"
+                .value=${this._config.current_layer_sensor || ""}
+                placeholder="sensor.prusa_current_layer"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
 
           <div class="field">
             <label class="field-label">Gesamtlayers</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.total_layers_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="total_layers_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.total_layers_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="total_layers_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="total_layers_sensor"
+                .value=${this._config.total_layers_sensor || ""}
+                placeholder="sensor.prusa_total_layers"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
 
           <div class="field">
             <label class="field-label">Lüftergeschwindigkeit</label>
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.fan_speed_sensor || ""}
-              .includeDomains=${["sensor"]}
-              name="fan_speed_sensor"
-              @value-changed=${this._valueChanged}
-            ></ha-entity-picker>
+            ${this._isCustomElementDefined('ha-entity-picker') ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.fan_speed_sensor || ""}
+                .includeDomains=${["sensor"]}
+                name="fan_speed_sensor"
+                @value-changed=${this._valueChanged}
+              ></ha-entity-picker>
+            ` : html`
+              <ha-textfield
+                name="fan_speed_sensor"
+                .value=${this._config.fan_speed_sensor || ""}
+                placeholder="sensor.prusa_fan_speed"
+                @change=${this._valueChanged}
+              ></ha-textfield>
+            `}
           </div>
         </div>
 
