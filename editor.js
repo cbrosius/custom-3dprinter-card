@@ -131,7 +131,8 @@ class PrusaCardEditor extends LitElement {
   }
 
   setConfig(config) {
-    this._config = { ...config };
+    this._config = config ? { ...config } : {};
+    this.requestUpdate();
   }
 
   get value() {

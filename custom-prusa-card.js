@@ -3,6 +3,7 @@ import {
   html,
   css,
 } from "https://unpkg.com/lit-element@3.3.3/lit-element.js?module";
+import "./editor.js";
 
 const HELPERS = window.loadCardHelpers ? window.loadCardHelpers() : undefined;
 
