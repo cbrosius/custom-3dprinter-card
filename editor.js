@@ -156,6 +156,9 @@ class PrusaCardEditor extends LitElement {
     let value;
     if (target.tagName === "HA-SWITCH" || target.type === "checkbox") {
       value = target.checked;
+    } else if (ev.detail?.value !== undefined) {
+      // Handle Home Assistant custom elements (ha-entity-picker, ha-device-picker, etc.)
+      value = ev.detail.value;
     } else {
       value = target.value;
     }
