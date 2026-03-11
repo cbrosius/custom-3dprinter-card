@@ -1,0 +1,8 @@
+{
+  "name": "Prusa 3D Printer Card",
+  "content_in_root": false,
+  "filename": "custom-prusa-card.js",
+  "country": ["DE", "US", "GB"],
+  "homeassistant": "2023.4.0",
+  "render_readme": true
+}
