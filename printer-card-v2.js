@@ -187,9 +187,25 @@ class PrinterCardV2 extends HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "view-unavail";
 
-    const icon = document.createElement("ha-icon");
-    icon.setAttribute("icon", "mdi:printer-3d");
-    icon.className = "unavail-icon-el";
+    // Show printer image if configured
+    const customImg = this._config.printer_image;
+    if (customImg && this._config.show_printer_image_when_off) {
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "unavail-printer-image";
+      
+      const img = document.createElement("img");
+      const scriptPath = new URL(import.meta.url).pathname;
+      const basePath = scriptPath.substring(0, scriptPath.lastIndexOf('/'));
+      img.src = `${basePath}/images/${customImg}`;
+      img.alt = "Drucker";
+      imgWrap.appendChild(img);
+      wrap.appendChild(imgWrap);
+    } else {
+      const icon = document.createElement("ha-icon");
+      icon.setAttribute("icon", "mdi:printer-3d");
+      icon.className = "unavail-icon-el";
+      wrap.appendChild(icon);
+    }
 
     const text = document.createElement("div");
     text.innerHTML = `
@@ -203,7 +219,6 @@ class PrinterCardV2 extends HTMLElement {
     const btn = this._makeIconButton("mdi:power", "btn-power-on", "power-on");
     powerWrap.appendChild(btn);
 
-    wrap.appendChild(icon);
     wrap.appendChild(text);
     wrap.appendChild(powerWrap);
     return wrap;
@@ -586,6 +601,18 @@ class PrinterCardV2 extends HTMLElement {
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
+    }
+    .unavail-printer-image {
+      width: 60px; height: 60px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--secondary-background-color, #f5f5f5);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .unavail-printer-image img {
+      width: 100%; height: 100%;
+      object-fit: contain;
     }
     .unavail-name { font-size: .95rem; font-weight: 600; }
     .unavail-sub  { font-size: .78rem; color: var(--secondary-text-color); margin-top: 1px; }
