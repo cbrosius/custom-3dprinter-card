@@ -555,33 +555,23 @@ class PrinterCardV2 extends HTMLElement {
     wrapper.className = "tile-wrap tile-orange";
 
     const curId = this._config.current_layer_entity;
-    const totId = this._config.total_layers_entity;
-
-    if (curId) {
-      // Use hui-tile-card for current layer, overlay total as secondary
-      const tile = document.createElement("hui-tile-card");
-      tile.setConfig({
-        type: "tile",
-        entity: curId,
-        icon: "mdi:layers-triple",
-        tap_action: { action: "more-info" },
-      });
-      this._tiles[curId] = tile;
-      wrapper.appendChild(tile);
-
-      // If total layers available, show as badge overlay
-      if (totId) {
-        const overlay = document.createElement("div");
-        overlay.className = "layer-total-overlay";
-        const totBadge = document.createElement("ha-state-label-badge");
-        totBadge.label = "total";
-        this._tiles[totId] = totBadge;
-        overlay.appendChild(totBadge);
-        wrapper.appendChild(overlay);
-      }
-    } else {
+    if (!curId) {
       wrapper.innerHTML = `<div class="tile-empty">—</div>`;
+      return wrapper;
     }
+
+    const content = document.createElement("div");
+    content.className = "layer-tile-content";
+    content.innerHTML = `
+      <div class="layer-icon-container">
+        <ha-icon icon="mdi:layers-triple" class="layer-icon"></ha-icon>
+      </div>
+      <div class="layer-info">
+        <div class="layer-primary">Layer</div>
+        <div class="layer-value">—</div>
+      </div>
+    `;
+    wrapper.appendChild(content);
     return wrapper;
   }
 
@@ -848,22 +838,28 @@ class PrinterCardV2 extends HTMLElement {
     .layer-tile-content {
       display: flex; align-items: center; gap: 12px;
       padding: 12px 14px; height: 64px;
-      background: rgba(255,109,0,.07); border-radius: 12px;
+      background: rgba(255,109,0,.08); border-radius: 12px;
     }
-    .layer-icon {
-      --mdc-icon-size: 24px;
-      color: #ff6d00;
+    .layer-icon-container {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(255,109,0,.15);
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .layer-text {
-      flex: 1; min-width: 0;
+    .layer-icon {
+      --mdc-icon-size: 22px;
+      color: #ff6d00;
+      display: flex;
     }
-    .layer-label {
-      font-size: .7rem; color: var(--secondary-text-color);
-      text-transform: capitalize; margin-bottom: 2px;
+    .layer-info {
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .layer-primary {
+      font-size: .85rem; font-weight: 500; color: white;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .layer-value {
-      font-size: .95rem; font-weight: 600; color: #ff6d00;
+      font-size: .88rem; font-weight: 600; color: #ff6d00;
     }
 
     /* ── IDLE BOTTOM ─────────────────────────────────────── */
