@@ -474,28 +474,38 @@ class PrinterCardV2 extends HTMLElement {
     const curId = this._config.current_layer_entity;
     const totId = this._config.total_layers_entity;
 
-    if (curId) {
-      // Use hui-tile-card for current layer, overlay total as secondary
-      const tile = document.createElement("hui-tile-card");
-      tile.setConfig({
-        type:       "tile",
-        entity:     curId,
-        icon:       "mdi:layers-triple",
-        tap_action: { action: "more-info" },
-      });
-      this._tiles[curId] = tile;
-      wrapper.appendChild(tile);
-
-      // If total layers available, show as badge overlay
-      if (totId) {
-        const overlay = document.createElement("div");
-        overlay.className = "layer-total-overlay";
-        const totBadge = document.createElement("ha-state-label-badge");
-        totBadge.label = "total";
-        this._tiles[totId] = totBadge;
-        overlay.appendChild(totBadge);
-        wrapper.appendChild(overlay);
+    if (curId && this._hass?.states[curId]) {
+      const curState = this._hass.states[curId].state;
+      const totState = totId && this._hass?.states[totId] ? this._hass.states[totId].state : null;
+      
+      // Create a custom tile display for layers
+      const tileContent = document.createElement("div");
+      tileContent.className = "layer-tile-content";
+      
+      const icon = document.createElement("ha-icon");
+      icon.setAttribute("icon", "mdi:layers-triple");
+      icon.className = "layer-icon";
+      tileContent.appendChild(icon);
+      
+      const textWrap = document.createElement("div");
+      textWrap.className = "layer-text";
+      
+      const label = document.createElement("div");
+      label.className = "layer-label";
+      label.textContent = "Layer";
+      textWrap.appendChild(label);
+      
+      const value = document.createElement("div");
+      value.className = "layer-value";
+      if (totState && totState !== "unavailable" && totState !== "unknown") {
+        value.textContent = `${curState} / ${totState}`;
+      } else {
+        value.textContent = curState;
       }
+      textWrap.appendChild(value);
+      
+      tileContent.appendChild(textWrap);
+      wrapper.appendChild(tileContent);
     } else {
       wrapper.innerHTML = `<div class="tile-empty">—</div>`;
     }
@@ -535,11 +545,10 @@ class PrinterCardV2 extends HTMLElement {
     wrap.appendChild(l);
     const v = document.createElement("div");
     v.className = "t-value" + (accent ? " remaining" : "");
-    if (entityId) {
-      const badge = document.createElement("ha-state-label-badge");
-      badge.label = "";
-      this._tiles[entityId + "_time"] = badge;
-      v.appendChild(badge);
+    if (entityId && this._hass?.states[entityId]) {
+      const state = this._hass.states[entityId].state;
+      const unit = this._hass.states[entityId].attributes?.unit_of_measurement || "";
+      v.textContent = state !== "unavailable" && state !== "unknown" ? `${state} ${unit}`.trim() : "—";
     } else {
       v.textContent = "—";
     }
@@ -715,6 +724,28 @@ class PrinterCardV2 extends HTMLElement {
       font-size: .68rem; color: var(--secondary-text-color);
     }
     .layer-total-overlay ha-state-label-badge { --ha-label-badge-size: 20px; font-size: .65rem; }
+
+    /* Custom layer tile styling */
+    .layer-tile-content {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; height: 64px;
+      background: rgba(255,109,0,.07); border-radius: 12px;
+    }
+    .layer-icon {
+      --mdc-icon-size: 24px;
+      color: #ff6d00;
+      flex-shrink: 0;
+    }
+    .layer-text {
+      flex: 1; min-width: 0;
+    }
+    .layer-label {
+      font-size: .7rem; color: var(--secondary-text-color);
+      text-transform: capitalize; margin-bottom: 2px;
+    }
+    .layer-value {
+      font-size: .95rem; font-weight: 600; color: #ff6d00;
+    }
 
     /* ── IDLE BOTTOM ─────────────────────────────────────── */
     .idle-bottom { padding: 12px 14px 14px; }
