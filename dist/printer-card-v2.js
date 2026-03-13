@@ -70,22 +70,16 @@ class PrinterCardV2Editor extends HTMLElement {
 
   _render() {
     if (!this._hass || !customElements.get("ha-form")) return;
-    
-    // Always recreate the form to ensure schema updates are reflected
-    if (this._formEl) {
-      this._formEl.remove();
-      this._formEl = null;
+    if (!this._formEl) {
+      this._formEl = document.createElement("ha-form");
+      this._formEl.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        // Update schema without recreating form (preserves scroll position)
+        this._formEl.schema = this._schema();
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config } }));
+      });
+      this.appendChild(this._formEl);
     }
-    
-    this._formEl = document.createElement("ha-form");
-    this._formEl.addEventListener("value-changed", (e) => {
-      this._config = e.detail.value;
-      // Re-render to update schema dynamically
-      this._render();
-      this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config } }));
-    });
-    this.appendChild(this._formEl);
-    
     this._formEl.hass = this._hass;
     this._formEl.data = this._config;
     this._formEl.schema = this._schema();
