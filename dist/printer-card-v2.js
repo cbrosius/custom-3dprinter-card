@@ -780,7 +780,13 @@ class PrinterCardV2 extends HTMLElement {
       --ha-card-background: rgba(33,150,243,.08);
       --ha-card-box-shadow: none;
       --ha-card-border-radius: 12px;
+      --primary-text-color: white;
+      --secondary-text-color: #2196f3;
       margin: 0;
+    }
+    .tile-blue hui-tile-card ha-tile-icon {
+      --tile-color: #2196f3;
+      --rgb-tile-color: 33, 150, 243;
     }
     .tile-orange hui-tile-card {
       --tile-color: #ff6d00;
@@ -789,19 +795,30 @@ class PrinterCardV2 extends HTMLElement {
       --ha-card-background: rgba(255,109,0,.07);
       --ha-card-box-shadow: none;
       --ha-card-border-radius: 12px;
-      --primary-text-color: #ff6d00;
+      --primary-text-color: white;
       --secondary-text-color: #ff6d00;
-      --state-icon-color: #ff6d00;
-      --paper-item-icon-color: #ff6d00;
       margin: 0;
     }
-    /* Force orange color for all tile-orange content */
-    .tile-orange hui-tile-card ha-icon,
-    .tile-orange hui-tile-card .icon,
+    .tile-orange hui-tile-card ha-tile-icon {
+      --tile-color: #ff6d00;
+      --rgb-tile-color: 255, 109, 0;
+    }
+    /* Force colors for all tile content */
+    .tile-orange hui-tile-card .primary {
+      color: white !important;
+    }
     .tile-orange hui-tile-card .state,
-    .tile-orange hui-tile-card .primary,
-    .tile-orange hui-tile-card .value {
+    .tile-orange hui-tile-card .value,
+    .tile-orange hui-tile-card .secondary {
       color: #ff6d00 !important;
+    }
+    .tile-blue hui-tile-card .primary {
+      color: white !important;
+    }
+    .tile-blue hui-tile-card .state,
+    .tile-blue hui-tile-card .value,
+    .tile-blue hui-tile-card .secondary {
+      color: #2196f3 !important;
     }
     .tile-empty {
       height: 64px; display: flex; align-items: center; justify-content: center;
