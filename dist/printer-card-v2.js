@@ -670,6 +670,7 @@ class PrinterCardV2 extends HTMLElement {
     ha-card.printer-card-v2 {
       overflow: hidden;
       border-radius: var(--ha-card-border-radius, 16px);
+      padding: 0;
     }
 
     /* ── UNAVAILABLE ─────────────────────────────────────── */
@@ -705,10 +706,23 @@ class PrinterCardV2 extends HTMLElement {
                     text-transform: uppercase; color: var(--secondary-text-color); }
 
     /* ── CAMERA ──────────────────────────────────────────── */
-    .camera-area  { position: relative; width: 100%; background: #111; line-height: 0; }
+    .camera-area  { 
+      position: relative; 
+      width: 100%; 
+      background: #111; 
+      line-height: 0;
+      margin: 0;
+      padding: 0;
+    }
     .camera-img   {
-      width: 100%; display: block; object-fit: cover;
-      aspect-ratio: 16/9; background: #111;
+      width: 100%; 
+      height: auto;
+      display: block; 
+      object-fit: cover;
+      aspect-ratio: 16/9; 
+      background: #111;
+      margin: 0;
+      padding: 0;
     }
     .printer-custom-img {
       object-fit: contain;
