@@ -274,25 +274,33 @@ class PrinterCardV2 extends HTMLElement {
     const sr = this.shadowRoot;
     const status = this._lastStatus || this._status();
 
-    // Preserve lightbox state before clearing
-    const oldLb = sr.getElementById("lightbox");
-    const wasLbActive = oldLb && oldLb.classList.contains("active");
-    const lbImageSrc = oldLb?.querySelector("img")?.src;
+    // Initialize shadow DOM if needed
+    if (!sr.querySelector("style")) {
+      sr.innerHTML = `<style>${this._css()}</style>`;
+    }
 
-    // Clear and rebuild
-    sr.innerHTML = `<style>${this._css()}</style>`;
-    const card = document.createElement("ha-card");
-    card.className = "printer-card-v2";
+    // Get or create lightbox
+    let lb = sr.getElementById("lightbox");
+    if (!lb) {
+      lb = document.createElement("div");
+      lb.id = "lightbox";
+      lb.className = "lightbox";
+      lb.onclick = () => lb.classList.remove("active");
+      const lbImg = document.createElement("img");
+      lb.appendChild(lbImg);
+      sr.appendChild(lb);
+    }
 
-    // Lightbox for bigger image
-    const lb = document.createElement("div");
-    lb.id = "lightbox";
-    lb.className = "lightbox";
-    lb.onclick = () => lb.classList.remove("active");
-    const lbImg = document.createElement("img");
-    lb.appendChild(lbImg);
-    sr.appendChild(lb);
+    // Get or create card
+    let card = sr.querySelector("ha-card");
+    if (!card) {
+      card = document.createElement("ha-card");
+      card.className = "printer-card-v2";
+      sr.appendChild(card);
+    }
 
+    // Update card content based on status
+    card.innerHTML = "";
     if (status === "unavailable") {
       card.appendChild(this._buildUnavail());
     } else if (status === "idle") {
@@ -303,14 +311,6 @@ class PrinterCardV2 extends HTMLElement {
       card.appendChild(this._buildCameraArea(status));
       const bottom = this._buildPrintingBottom();
       if (bottom) card.appendChild(bottom);
-    }
-
-    sr.appendChild(card);
-    
-    // Restore lightbox state
-    if (wasLbActive && lbImageSrc) {
-      lbImg.src = lbImageSrc;
-      lb.classList.add("active");
     }
     
     this._propagateHass();
