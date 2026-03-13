@@ -544,7 +544,7 @@ class PrinterCardV2 extends HTMLElement {
     :host { display: block; }
     * { box-sizing: border-box; }
 
-    ha-card.printer-card {
+    ha-card.printer-card-v2 {
       overflow: hidden;
       border-radius: var(--ha-card-border-radius, 16px);
     }
@@ -573,7 +573,7 @@ class PrinterCardV2 extends HTMLElement {
     .camera-area  { position: relative; width: 100%; background: #111; line-height: 0; }
     .camera-img   {
       width: 100%; display: block; object-fit: cover;
-      max-height: 260px; min-height: 160px; aspect-ratio: 16/9; background: #111;
+      aspect-ratio: 16/9; background: #111;
     }
     .printer-custom-img {
       object-fit: contain;
