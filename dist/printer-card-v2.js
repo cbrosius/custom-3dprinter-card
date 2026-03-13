@@ -383,12 +383,9 @@ class PrinterCardV2 extends HTMLElement {
     const jobName = document.createElement("div");
     jobName.className = "job-name";
     const jobId = this._config.job_name_entity;
-    if (jobId) {
-      const badge = document.createElement("ha-state-label-badge");
-      badge.className = "job-name-badge";
-      badge.label = "";
-      this._tiles["job_name"] = badge;
-      jobName.appendChild(badge);
+    if (jobId && this._hass?.states[jobId]) {
+      const fileName = this._hass.states[jobId].state || "—";
+      jobName.textContent = fileName;
     } else {
       jobName.textContent = "—";
     }
