@@ -460,6 +460,7 @@ class PrinterCardV2 extends HTMLElement {
       entity:      entityId,
       name:        cleanName,
       icon:        fallbackIcon,
+      color:       color,
       show_entity_picture: false,
       tap_action:  { action: "more-info" },
     });
@@ -484,6 +485,7 @@ class PrinterCardV2 extends HTMLElement {
         type:       "tile",
         entity:     curId,
         icon:       "mdi:layers-triple",
+        color:      "orange",
         tap_action: { action: "more-info" },
       });
       this._tiles[curId] = tile;
@@ -694,6 +696,7 @@ class PrinterCardV2 extends HTMLElement {
     }
     .tile-blue hui-tile-card {
       --tile-color: #2196f3;
+      --rgb-tile-color: 33, 150, 243;
       --state-color: #2196f3;
       --ha-card-background: rgba(33,150,243,.08);
       --ha-card-box-shadow: none;
@@ -702,6 +705,7 @@ class PrinterCardV2 extends HTMLElement {
     }
     .tile-orange hui-tile-card {
       --tile-color: #ff6d00;
+      --rgb-tile-color: 255, 109, 0;
       --state-color: #ff6d00;
       --ha-card-background: rgba(255,109,0,.07);
       --ha-card-box-shadow: none;
