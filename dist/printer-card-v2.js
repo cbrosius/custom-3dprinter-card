@@ -96,7 +96,7 @@ class PrinterCardV2 extends HTMLElement {
 
   static getConfigElement() { return document.createElement("printer-card-v2-editor"); }
   static getStubConfig() {
-    return { name: "my3D-Printer", printer_status_entity: "", camera_entity: "", power_switch_entity: "" };
+    return { name: "my3D-Printer", printer_status_entity: "", camera_entity: "", power_switch_entity: "", job_name_entity: "" };
   }
 
   setConfig(config) {
@@ -219,8 +219,7 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   _updateLayerValue() {
-    // No longer needed manually as we use Jinja templates in _buildLayerTile
-    // Mushroom handles the updates itself when hass changes.
+    // No longer needed - Mushroom handles updates automatically when hass changes
   }
 
   _updateProgressBar() {
@@ -623,29 +622,6 @@ class PrinterCardV2 extends HTMLElement {
     return tile;
   }
 
-  // Inline state label for meta rows (last job, filament)
-  _buildStateLine(entityId, label, accent) {
-    const wrap = document.createElement("div");
-    wrap.style.textAlign = accent ? "right" : "left";
-    const l = document.createElement("div");
-    l.className = "meta-label";
-    l.textContent = label;
-    wrap.appendChild(l);
-
-    const v = document.createElement("div");
-    v.className = "meta-value" + (accent ? " accent" : "");
-    if (entityId) {
-      const badge = document.createElement("ha-state-label-badge");
-      badge.label = "";
-      this._tiles[entityId + "_meta"] = badge;
-      v.appendChild(badge);
-    } else {
-      v.textContent = "—";
-    }
-    wrap.appendChild(v);
-    return wrap;
-  }
-
   // Time column for printing view
   _buildTimeCol(label, entityId, accent) {
     const wrap = document.createElement("div");
@@ -888,16 +864,7 @@ class PrinterCardV2 extends HTMLElement {
     .tile-blue hui-tile-card ha-tile-info .secondary {
       color: #2196f3 !important;
     }
-    .tile-empty {
-      height: 64px; display: flex; align-items: center; justify-content: center;
-      color: var(--secondary-text-color); font-size: .85rem;
-      background: var(--secondary-background-color); border-radius: 12px;
-    }
-    .layer-total-overlay {
-      position: absolute; bottom: 4px; right: 8px;
-      font-size: .68rem; color: var(--secondary-text-color);
-    }
-    .layer-total-overlay ha-state-label-badge { --ha-label-badge-size: 20px; font-size: .65rem; }
+
 
     /* Mushroom Layer Tile tweaks to match hui-tile-card */
     .mushroom-layer-tile {
@@ -957,7 +924,6 @@ class PrinterCardV2 extends HTMLElement {
     .job-info  { flex: 1; min-width: 0; }
     .job-name  { font-size: .9rem; font-weight: 700; white-space: nowrap;
                  overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-    .job-name-badge { --ha-label-badge-font-size: .9rem; }
     .time-row  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 5px; }
     .t-label   { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
                  color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
