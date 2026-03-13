@@ -41,6 +41,7 @@ class PrinterCardV2Editor extends HTMLElement {
               { label: "Prusa Core XY", value: "PrusaCoreOne.jpg" },
               { label: "Prusa Mini", value: "PrusaMini.jpg" },
               { label: "A1 Mini", value: "A1Mini.jpg" },
+              { label: "Kossel", value: "Kossel.jpg" },
               { label: "Custom Upload", value: "custom" },
             ],
             mode: "dropdown"
