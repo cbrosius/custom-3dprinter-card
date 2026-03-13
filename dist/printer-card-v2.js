@@ -161,7 +161,7 @@ class PrinterCardV2 extends HTMLElement {
     if (!this.shadowRoot) return;
     // All native HA elements that need hass forwarded
     this.shadowRoot.querySelectorAll(
-      "hui-tile-card, ha-icon-button, ha-state-label-badge, hui-image-card"
+      "hui-tile-card, ha-icon-button, ha-state-label-badge, hui-image-card, mushroom-template-card"
     ).forEach(el => { if (el.hass !== this._hass) el.hass = this._hass; });
 
     // Update custom text elements
@@ -213,21 +213,31 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   _updateLayerValue() {
-    const layerValueEl = this.shadowRoot.querySelector(".layer-value");
-    if (!layerValueEl) return;
-
     const curId = this._config.current_layer_entity;
+    if (!curId || !this._hass?.states[curId]) return;
+
     const totId = this._config.total_layers_entity;
+    const curState = this._hass.states[curId].state;
+    const totState = totId && this._hass?.states[totId] ? this._hass.states[totId].state : null;
+    
+    let display = curState;
+    if (totState && totState !== "unavailable" && totState !== "unknown") {
+      display = `${curState} / ${totState}`;
+    }
 
-    if (curId && this._hass?.states[curId]) {
-      const curState = this._hass.states[curId].state;
-      const totState = totId && this._hass?.states[totId] ? this._hass.states[totId].state : null;
-
-      if (totState && totState !== "unavailable" && totState !== "unknown") {
-        layerValueEl.textContent = `${curState} / ${totState}`;
-      } else {
-        layerValueEl.textContent = curState;
+    // Update Mushroom Template Card
+    const mushroomTile = this.shadowRoot.querySelector("mushroom-template-card.mushroom-layer-tile");
+    if (mushroomTile) {
+      if (mushroomTile.secondary !== display) {
+        mushroomTile.secondary = display;
       }
+      return;
+    }
+
+    // Fallback for custom HTML if layout hasn't cleared yet
+    const layerValueEl = this.shadowRoot.querySelector(".layer-value");
+    if (layerValueEl) {
+      layerValueEl.textContent = display;
     }
   }
 
@@ -590,22 +600,19 @@ class PrinterCardV2 extends HTMLElement {
     const curId = this._config.current_layer_entity;
     if (!curId) return null;
 
-    const wrapper = document.createElement("div");
-    wrapper.className = "tile-wrap tile-orange";
-
-    const content = document.createElement("div");
-    content.className = "layer-tile-content";
-    content.innerHTML = `
-      <div class="layer-icon-container">
-        <ha-icon icon="mdi:layers-triple" class="layer-icon"></ha-icon>
-      </div>
-      <div class="layer-info">
-        <div class="layer-primary">Layer</div>
-        <div class="layer-value">—</div>
-      </div>
-    `;
-    wrapper.appendChild(content);
-    return wrapper;
+    const tile = document.createElement("mushroom-template-card");
+    tile.className = "mushroom-layer-tile";
+    tile.setConfig({
+      type: "custom:mushroom-template-card",
+      primary: "Layer",
+      secondary: "—",
+      icon: "mdi:layers-triple",
+      icon_color: "orange",
+      tap_action: { action: "more-info" },
+      entity: curId
+    });
+    
+    return tile;
   }
 
   // Inline state label for meta rows (last job, filament)
@@ -884,32 +891,11 @@ class PrinterCardV2 extends HTMLElement {
     }
     .layer-total-overlay ha-state-label-badge { --ha-label-badge-size: 20px; font-size: .65rem; }
 
-    /* Custom layer tile styling */
-    .layer-tile-content {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; height: 64px;
-      background: rgba(255,109,0,.08); border-radius: 12px;
-    }
-    .layer-icon-container {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: rgba(255,109,0,.15);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .layer-icon {
-      --mdc-icon-size: 22px;
-      color: #ff6d00;
-      display: flex;
-    }
-    .layer-info {
-      display: flex; flex-direction: column; overflow: hidden;
-    }
-    .layer-primary {
-      font-size: .85rem; font-weight: 500; color: white;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .layer-value {
-      font-size: .88rem; font-weight: 600; color: #ff6d00;
+    /* Mushroom Layer Tile tweaks */
+    .mushroom-layer-tile {
+      margin: 0;
+      --ha-card-border-radius: 12px;
+      --ha-card-box-shadow: none;
     }
 
     /* ── IDLE BOTTOM ─────────────────────────────────────── */
