@@ -479,6 +479,7 @@ class PrinterCardV2 extends HTMLElement {
       img.className = "thumb-sm";
       img.src = thumbUrl;
       img.alt = "Modell";
+      img.onclick = () => this._showLightbox(thumbUrl);
       infoRow.appendChild(img);
     } else {
       const ph = document.createElement("div");
@@ -941,6 +942,7 @@ class PrinterCardV2 extends HTMLElement {
     .thumb-sm {
       width: 54px; height: 54px; border-radius: 8px; object-fit: cover;
       background: var(--secondary-background-color); flex-shrink: 0;
+      cursor: zoom-in;
     }
     .thumb-sm-ph {
       width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0;
