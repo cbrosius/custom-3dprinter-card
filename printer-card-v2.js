@@ -30,10 +30,30 @@ class PrinterCardV2Editor extends HTMLElement {
       { name: "total_layers_entity",    label: "Gesamt-Layer Sensor",                 selector: { entity: { domain: "sensor" } } },
       { name: "thumbnail_entity",       label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
       { name: "job_name_entity",        label: "Dateiname / Job-Name Sensor",         selector: { entity: { domain: "sensor" } } },
-      { name: "filament_entity",        label: "Filament-Sensor (idle)",              selector: { entity: { domain: "sensor" } } },
-      { name: "last_job_entity",        label: "Letzter Job Sensor (idle)",           selector: { entity: { domain: "sensor" } } },
+
       { name: "pause_button_entity",    label: "Pause-Entität",                       selector: { entity: { domain: ["button","script","input_button"] } } },
-      { name: "printer_image_entity",   label: "Drucker-Bild",                        selector: { entity: { domain: ["sensor", "camera"] } } },
+      { 
+        name: "printer_image", 
+        label: "Drucker-Bild", 
+        selector: { 
+          select: { 
+            options: [
+              { label: "Kein Bild", value: "" },
+              { label: "Prusa Core XY", value: "PrusaCoreOne.jpg" },
+              { label: "Prusa Mini", value: "PrusaMini.jpg" },
+              { label: "A1 Mini", value: "A1Mini.jpg" },
+              { label: "Custom1", value: "Custom1.jpg" },
+              { label: "Custom2", value: "Custom2.jpg" },
+              { label: "Custom3", value: "Custom3.jpg" },
+            ] 
+          } 
+        } 
+      },
+      { 
+        name: "show_printer_image_when_off", 
+        label: "Zeige Drucker-Bild, wenn der Drucker aus ist", 
+        selector: { boolean: {} } 
+      },
     ];
   }
 
@@ -195,15 +215,23 @@ class PrinterCardV2 extends HTMLElement {
     wrap.className = "camera-area";
 
     // Custom printer image (shown when no camera available)
-    const customImgId = this._config.printer_image_entity;
+    const customImg = this._config.printer_image;
     let showLiveBadge = false;
     
-    if (customImgId && this._hass) {
+    if (customImg) {
+      // If custom image is selected from the dropdown, use the local image file
+      const img = document.createElement("img");
+      img.className = "camera-img printer-custom-img";
+      img.src = `/local/custom-prusa-card/images/${customImg}`;
+      img.alt = "Drucker";
+      wrap.appendChild(img);
+    } else if (this._config.printer_image_entity && this._hass) {
+      // Backward compatibility: support for entity-based images
+      const customImgId = this._config.printer_image_entity;
       let customImgUrl = null;
       
       // Check if it's a media entity (from media picker)
       if (customImgId.startsWith("media-source://")) {
-        // For media picker, use the entity_id directly as the URL
         customImgUrl = customImgId;
       } else if (this._hass.states[customImgId]) {
         // For image entity
@@ -299,13 +327,6 @@ class PrinterCardV2 extends HTMLElement {
     tempRow.appendChild(this._buildTile(this._config.bed_temp_entity,    "mdi:thermometer",            "blue"));
     tempRow.appendChild(this._buildTile(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat", "blue"));
     wrap.appendChild(tempRow);
-
-    // Meta row: last job + filament using native state labels
-    const meta = document.createElement("div");
-    meta.className = "meta-row";
-    meta.appendChild(this._buildStateLine(this._config.last_job_entity,  "Last Job",  false));
-    meta.appendChild(this._buildStateLine(this._config.filament_entity,  "Filament",  true));
-    wrap.appendChild(meta);
 
     return wrap;
   }
