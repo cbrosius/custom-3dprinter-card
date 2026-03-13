@@ -33,6 +33,7 @@ class PrinterCardV2Editor extends HTMLElement {
       { name: "filament_entity",        label: "Filament-Sensor (idle)",              selector: { entity: { domain: "sensor" } } },
       { name: "last_job_entity",        label: "Letzter Job Sensor (idle)",           selector: { entity: { domain: "sensor" } } },
       { name: "pause_button_entity",    label: "Pause-Entität",                       selector: { entity: { domain: ["button","script","input_button"] } } },
+      { name: "printer_image_entity",   label: "Eigenes Bild (falls keine Kamera)",   selector: { entity: { domain: "image"  } } },
     ];
   }
 
@@ -193,22 +194,40 @@ class PrinterCardV2 extends HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "camera-area";
 
-    // Camera image
-    const camId = this._config.camera_entity;
-    if (camId && this._hass) {
-      const token = this._hass.states[camId]?.attributes?.access_token;
-      const src   = token ? `/api/camera_proxy/${camId}?token=${token}&t=${Date.now()}` : null;
-      if (src) {
+    // Custom printer image (shown when no camera available)
+    const customImgId = this._config.printer_image_entity;
+    if (customImgId && this._hass) {
+      const customImgUrl = this._hass?.states[customImgId]?.state?.startsWith("http")
+        ? this._hass.states[customImgId].state
+        : this._hass?.states[customImgId]?.attributes?.entity_picture;
+      
+      if (customImgUrl) {
         const img = document.createElement("img");
-        img.className = "camera-img";
-        img.src = src;
-        img.alt = "Kamera";
+        img.className = "camera-img printer-custom-img";
+        img.src = customImgUrl;
+        img.alt = "Drucker";
         wrap.appendChild(img);
       } else {
         wrap.appendChild(this._cameraPlaceholder());
       }
     } else {
-      wrap.appendChild(this._cameraPlaceholder());
+      // Camera image
+      const camId = this._config.camera_entity;
+      if (camId && this._hass) {
+        const token = this._hass.states[camId]?.attributes?.access_token;
+        const src   = token ? `/api/camera_proxy/${camId}?token=${token}&t=${Date.now()}` : null;
+        if (src) {
+          const img = document.createElement("img");
+          img.className = "camera-img";
+          img.src = src;
+          img.alt = "Kamera";
+          wrap.appendChild(img);
+        } else {
+          wrap.appendChild(this._cameraPlaceholder());
+        }
+      } else {
+        wrap.appendChild(this._cameraPlaceholder());
+      }
     }
 
     // Overlay
@@ -540,6 +559,10 @@ class PrinterCardV2 extends HTMLElement {
     .camera-img   {
       width: 100%; display: block; object-fit: cover;
       max-height: 260px; min-height: 160px; aspect-ratio: 16/9; background: #111;
+    }
+    .printer-custom-img {
+      object-fit: contain;
+      background: #1a1a1a;
     }
     .camera-no {
       width: 100%; height: 180px; display: flex; align-items: center;
