@@ -74,8 +74,9 @@ class PrinterCardV2Editor extends HTMLElement {
       this._formEl = document.createElement("ha-form");
       this._formEl.addEventListener("value-changed", (e) => {
         this._config = e.detail.value;
-        // Update schema without recreating form (preserves scroll position)
+        // Update schema and data to trigger re-render
         this._formEl.schema = this._schema();
+        this._formEl.data = { ...this._config };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config } }));
       });
       this.appendChild(this._formEl);
