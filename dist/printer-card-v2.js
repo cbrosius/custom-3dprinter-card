@@ -155,6 +155,75 @@ class PrinterCardV2 extends HTMLElement {
     this.shadowRoot.querySelectorAll(
       "hui-tile-card, ha-icon-button, ha-state-label-badge, hui-image-card"
     ).forEach(el => { if (el.hass !== this._hass) el.hass = this._hass; });
+    
+    // Update custom text elements
+    this._updateJobName();
+    this._updateTimeValues();
+    this._updateLayerValue();
+    this._updateProgressBar();
+  }
+  
+  _updateJobName() {
+    const jobNameEl = this.shadowRoot.querySelector(".job-name");
+    if (!jobNameEl) return;
+    const jobId = this._config.job_name_entity;
+    if (jobId && this._hass?.states[jobId]) {
+      const fileName = this._hass.states[jobId].state || "—";
+      jobNameEl.textContent = fileName;
+    }
+  }
+  
+  _updateTimeValues() {
+    const timeValues = this.shadowRoot.querySelectorAll(".t-value");
+    if (!timeValues.length) return;
+    
+    // First t-value is ELAPSED, second is REMAINING
+    const elapsedEl = timeValues[0];
+    const remainingEl = timeValues[1];
+    
+    if (elapsedEl) {
+      const entityId = this._config.print_time_entity;
+      if (entityId && this._hass?.states[entityId]) {
+        const state = this._hass.states[entityId].state;
+        const unit = this._hass.states[entityId].attributes?.unit_of_measurement || "";
+        elapsedEl.textContent = state !== "unavailable" && state !== "unknown" ? `${state} ${unit}`.trim() : "—";
+      }
+    }
+    
+    if (remainingEl) {
+      const entityId = this._config.print_time_left_entity;
+      if (entityId && this._hass?.states[entityId]) {
+        const state = this._hass.states[entityId].state;
+        const unit = this._hass.states[entityId].attributes?.unit_of_measurement || "";
+        remainingEl.textContent = state !== "unavailable" && state !== "unknown" ? `${state} ${unit}`.trim() : "—";
+      }
+    }
+  }
+  
+  _updateLayerValue() {
+    const layerValueEl = this.shadowRoot.querySelector(".layer-value");
+    if (!layerValueEl) return;
+    
+    const curId = this._config.current_layer_entity;
+    const totId = this._config.total_layers_entity;
+    
+    if (curId && this._hass?.states[curId]) {
+      const curState = this._hass.states[curId].state;
+      const totState = totId && this._hass?.states[totId] ? this._hass.states[totId].state : null;
+      
+      if (totState && totState !== "unavailable" && totState !== "unknown") {
+        layerValueEl.textContent = `${curState} / ${totState}`;
+      } else {
+        layerValueEl.textContent = curState;
+      }
+    }
+  }
+  
+  _updateProgressBar() {
+    const progressFill = this.shadowRoot.querySelector(".progress-fill");
+    if (!progressFill) return;
+    const pct = this._pct();
+    progressFill.style.width = pct + "%";
   }
 
   // ── Full structural render ────────────────────────────────
