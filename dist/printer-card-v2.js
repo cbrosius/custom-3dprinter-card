@@ -11,7 +11,12 @@
 //  Visual Editor
 // ─────────────────────────────────────────────────────────────
 class PrinterCardV2Editor extends HTMLElement {
-  constructor() { super(); this._config = {}; this._hass = null; }
+  constructor() { 
+    super(); 
+    this._config = {}; 
+    this._hass = null;
+    this._renderTimeout = null;
+  }
   set hass(hass) { this._hass = hass; this._render(); }
   setConfig(config) { this._config = { ...config }; this._render(); }
 
@@ -70,21 +75,42 @@ class PrinterCardV2Editor extends HTMLElement {
 
   _render() {
     if (!this._hass || !customElements.get("ha-form")) return;
-    if (!this._formEl) {
+    
+    // Clear any pending render
+    if (this._renderTimeout) clearTimeout(this._renderTimeout);
+    
+    // Debounce to prevent rapid re-renders
+    this._renderTimeout = setTimeout(() => {
+      // Store scroll position of the editor container
+      const editorContainer = this.closest("hui-dialog-edit-card") || this.parentElement;
+      const scrollPos = editorContainer?.scrollTop || 0;
+      
+      // Remove old form if it exists
+      if (this._formEl) {
+        this._formEl.remove();
+      }
+      
+      // Create new form
       this._formEl = document.createElement("ha-form");
       this._formEl.addEventListener("value-changed", (e) => {
         this._config = e.detail.value;
-        // Update schema and data to trigger re-render
-        this._formEl.schema = this._schema();
-        this._formEl.data = { ...this._config };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config } }));
+        // Re-render to show/hide custom_image field
+        this._render();
       });
+      
+      this._formEl.hass = this._hass;
+      this._formEl.data = this._config;
+      this._formEl.schema = this._schema();
+      this._formEl.computeLabel = (s) => s.label || s.name;
+      
       this.appendChild(this._formEl);
-    }
-    this._formEl.hass = this._hass;
-    this._formEl.data = this._config;
-    this._formEl.schema = this._schema();
-    this._formEl.computeLabel = (s) => s.label || s.name;
+      
+      // Restore scroll position
+      if (editorContainer) {
+        editorContainer.scrollTop = scrollPos;
+      }
+    }, 100);
   }
 }
 if (!customElements.get("printer-card-v2-editor")) {
