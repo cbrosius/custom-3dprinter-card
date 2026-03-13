@@ -135,10 +135,14 @@ class PrinterCardV2 extends HTMLElement {
     const pre = new Image();
     pre.onload = () => {
       img.src = src;
-      // Update lightbox if active
+      // Update lightbox if active AND showing camera (not 3D model)
       const lb = this.shadowRoot.getElementById("lightbox");
       if (lb && lb.classList.contains("active")) {
-        lb.querySelector("img").src = src;
+        const lbImg = lb.querySelector("img");
+        // Only update if lightbox is showing camera image (contains camera_proxy)
+        if (lbImg && lbImg.src.includes("camera_proxy")) {
+          lbImg.src = src;
+        }
       }
     };
     pre.src = src;
