@@ -18,6 +18,18 @@ class PrinterCardV2Editor extends HTMLElement {
   _baseSchema() {
     return [
       { name: "name", label: "Drucker Name", selector: { text: {} } },
+      {
+        name: "printer_image",
+        label: "Drucker-Bild",
+        selector: {
+          media: {
+            accept: ["image/*"],
+            clearable: true,
+            image_upload: true,
+            hide_content_type: true,
+          }
+        }
+      },
       { name: "printer_status_entity", label: "Drucker-Status Sensor", selector: { entity: {} } },
       { name: "camera_entity", label: "Kamera", selector: { entity: { domain: "camera" } } },
       { name: "power_switch_entity", label: "Spannungsversorgungs-Schalter", selector: { entity: { domain: ["switch", "input_boolean"] } } },
@@ -31,18 +43,6 @@ class PrinterCardV2Editor extends HTMLElement {
       { name: "eta_entity", label: "Fertigstellung (ETA) Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "thumbnail_entity", label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
       { name: "job_name_entity", label: "Dateiname / Job-Name Sensor", selector: { entity: { domain: "sensor" } } },
-      {
-        name: "printer_image2",
-        label: "Drucker-Bild (Medienauswahl)",
-        selector: {
-          media: {
-            accept: ["image/*"],
-            clearable: true,
-            image_upload: true,
-            hide_content_type: true,
-          }
-        }
-      },
       {
         name: "show_printer_image_when_off",
         label: "Zeige Drucker-Bild, wenn der Drucker aus ist",
