@@ -700,14 +700,6 @@ class PrinterCardV2 extends HTMLElement {
       --ha-card-background: rgba(33,150,243,.08); --ha-card-box-shadow: none;
       --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: #2196f3; margin: 0;
     }
-    .tile-orange hui-tile-card {
-      --tile-color: #ff6d00; --rgb-tile-color: 255,109,0; --state-color: #ff6d00;
-      --ha-card-background: rgba(255,109,0,.07); --ha-card-box-shadow: none;
-      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: #ff6d00; margin: 0;
-    }
-    .tile-orange hui-tile-card .primary, .tile-orange hui-tile-card ha-tile-info .primary { color: white !important; }
-    .tile-orange hui-tile-card .state, .tile-orange hui-tile-card .value,
-    .tile-orange hui-tile-card .secondary, .tile-orange hui-tile-card ha-tile-info .secondary { color: #ff6d00 !important; }
     .tile-blue hui-tile-card .primary, .tile-blue hui-tile-card ha-tile-info .primary { color: white !important; }
     .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
     .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
@@ -715,8 +707,7 @@ class PrinterCardV2 extends HTMLElement {
     /* ── SENSOR CARD ────────────────────────────────────────── */
     .sensor-card-wrap { border-radius: 12px; overflow: hidden; min-height: 80px; display: block; }
     .sensor-blue hui-sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
-    .sensor-yellow hui-sensor-card { --card-background: rgba(255,193,7,.08); --icon-color: #ffc107; }
-
+  
     .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
     .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
 
