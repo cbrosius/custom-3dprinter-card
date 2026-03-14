@@ -512,7 +512,7 @@ class PrinterCardV2 extends HTMLElement {
     const wrapper = document.createElement("div");
     wrapper.className = `sensor-card-wrap sensor-${color}`;
     const card = document.createElement("sensor-card");
-    card.setConfig({ entity: entityId, icon: icon, tap_action: { action: "more-info" } });
+    card.setConfig({ entity: entityId, icon: icon, graph: "line", hours_to_show: 1, tap_action: { action: "more-info" } });
     this._tiles[entityId] = card;
     wrapper.appendChild(card);
     return wrapper;
@@ -668,7 +668,7 @@ class PrinterCardV2 extends HTMLElement {
     .sensor-blue sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
     .sensor-yellow sensor-card { --card-background: rgba(255,193,7,.08); --icon-color: #ffc107; }
 
-    .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --ha-card-background: rgba(255,109,0,.07); --mush-icon-size: 40px; --mush-spacing: 12px; }
+    .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
     .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
 
     /* ── IDLE BOTTOM ──────────────────────────────────────── */
