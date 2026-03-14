@@ -702,18 +702,8 @@ class PrinterCardV2 extends HTMLElement {
      .btn-power-off { background: rgba(244,67,54,.15); color: #f44336; }
 
     /* ── TILES ────────────────────────────────────────────── */
-    .tile-wrap { border-radius: 12px; overflow: hidden; position: relative; }
-    .tile-blue hui-tile-card {
-      --tile-color: #2196f3; --rgb-tile-color: 33,150,243; --state-color: #2196f3;
-      --ha-card-background: rgba(33,150,243,.08); --ha-card-box-shadow: none;
-      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: #2196f3; margin: 0;
-    }
-    .tile-blue hui-tile-card .primary, .tile-blue hui-tile-card ha-tile-info .primary { color: white !important; }
-    .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
-    .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
-
-    /* ── SENSOR CARD ────────────────────────────────────────── */
-    .sensor-card-wrap { border-radius: 12px; overflow: hidden; display: block; }
+    .tile-wrap { border-radius: 12px; overflow: hidden; position: relative; height: 72px; }
+    .sensor-card-wrap { border-radius: 12px; overflow: hidden; display: block; height: 72px; }
     .sensor-blue hui-sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
   
     .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
