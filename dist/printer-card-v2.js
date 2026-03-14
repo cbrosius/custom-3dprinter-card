@@ -184,6 +184,16 @@ class PrinterCardV2 extends HTMLElement {
 
   // ── Image resolution helper ─────────────────────────────
   _getPrinterImage() {
+    if (this._config.printer_image2) {
+      const img2 = this._config.printer_image2;
+      if (typeof img2 === "string") {
+        return img2;
+      }
+      if (img2 && img2.media_content_id) {
+        return img2.media_content_id;
+      }
+    }
+
     const model = this._config.printer_image || "";
 
     if (model === "custom") {
@@ -194,16 +204,6 @@ class PrinterCardV2 extends HTMLElement {
       const scriptPath = new URL(import.meta.url).pathname;
       const basePath = scriptPath.substring(0, scriptPath.lastIndexOf('/'));
       return `${basePath}/images/${model}`;
-    }
-
-    if (this._config.printer_image2) {
-      const img2 = this._config.printer_image2;
-      if (typeof img2 === "string") {
-        return img2;
-      }
-      if (img2 && img2.media_content_id) {
-        return img2.media_content_id;
-      }
     }
 
     return null;

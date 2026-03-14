@@ -4,7 +4,7 @@ Eine Home Assistant Custom Card für 3D-Drucker mit Mushroom Design.
 
 ![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Home Assistant](https://img.shields.io/badge/home%20assistant-2023.4.0%2B-blue)
+![Home Assistant](https://img.shields.io/badge/home%20assistant-2025.10.0%2B-blue)
 
 ## Features
 
@@ -124,10 +124,11 @@ show_printer_image_when_off: true
 
 ## Voraussetzungen
 
-- Home Assistant 2023.4.0 oder höher (2025.10+ für Medienauswahl bei `printer_image2`)
+- Home Assistant 2025.10+
 - Drucker-Integration in Home Assistant eingerichtet (z.B. PrusaLink, OctoPrint, Bambu Lab, etc.)
 - Optional: Eine Kamera, die den Drucker überwacht
 - Optional: Ein Schalter zur Steuerung der Spannungsversorgung
+- Optional: Leistungs-Sensor zur Erfassung des Stromverbrauchs
 
 
 ## Mitwirken
