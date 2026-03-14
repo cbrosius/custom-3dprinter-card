@@ -406,8 +406,8 @@ class PrinterCardV2 extends HTMLElement {
     wrap.className = "idle-bottom";
     const tempRow = document.createElement("div");
     tempRow.className = "temp-row";
-    const bedTile = this._buildTile(this._config.bed_temp_entity, "mdi:thermometer", "blue");
-    const nozzleTile = this._buildTile(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat", "blue");
+    const bedTile = this._buildSensorCard(this._config.bed_temp_entity, "mdi:thermometer", "blue");
+    const nozzleTile = this._buildSensorCard(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat", "blue");
     const powerTile = this._buildTile(this._config.power_sensor_entity, "mdi:lightning-bolt", "yellow");
     if (bedTile) tempRow.appendChild(bedTile);
     if (nozzleTile) tempRow.appendChild(nozzleTile);
@@ -480,7 +480,7 @@ class PrinterCardV2 extends HTMLElement {
       this._buildTile(this._config.print_progress_entity, "mdi:percent"),
       this._buildTile(this._config.bed_temp_entity, "mdi:radiator"),
       this._buildTile(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat"),
-      this._buildTile(this._config.power_sensor_entity, "mdi:lightning-bolt", "yellow"),
+      this._buildTile(this._config.power_sensor_entity, "mdi:lightning-bolt"),
       this._buildTile(this._config.print_time_entity, "mdi:clock-outline"),
       this._buildTile(this._config.print_time_left_entity, "mdi:clock-end"),
       this._buildTile(this._config.eta_entity, "mdi:clock-check-outline"),
@@ -506,6 +506,18 @@ class PrinterCardV2 extends HTMLElement {
     return wrapper;
   }
 
+  // ── sensor-card factory ─────────────────────────────────────
+  _buildSensorCard(entityId, icon, color) {
+    if (!entityId) return null;
+    const wrapper = document.createElement("div");
+    wrapper.className = `sensor-card-wrap sensor-${color}`;
+    const card = document.createElement("sensor-card");
+    card.setConfig({ entity: entityId, icon: icon, tap_action: { action: "more-info" } });
+    this._tiles[entityId] = card;
+    wrapper.appendChild(card);
+    return wrapper;
+  }
+
   // ── Mushroom layer tile ───────────────────────────────────
   _buildLayerTile() {
     const curId = this._config.current_layer_entity;
@@ -516,7 +528,7 @@ class PrinterCardV2 extends HTMLElement {
     const tile = document.createElement("mushroom-template-card");
     tile.className = "mushroom-layer-tile";
     tile.setConfig({ type: "custom:mushroom-template-card", primary: "Layer", secondary,
-      icon: "mdi:layers-triple", icon_color: "orange", layout: "horizontal",
+      icon: "mdi:layers-triple", layout: "horizontal",
       tap_action: { action: "more-info" }, entity: curId });
     return tile;
   }
@@ -651,12 +663,17 @@ class PrinterCardV2 extends HTMLElement {
     .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
     .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
 
+    /* ── SENSOR CARD ────────────────────────────────────────── */
+    .sensor-card-wrap { border-radius: 12px; overflow: hidden; }
+    .sensor-blue sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
+    .sensor-yellow sensor-card { --card-background: rgba(255,193,7,.08); --icon-color: #ffc107; }
+
     .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --ha-card-background: rgba(255,109,0,.07); --mush-icon-size: 40px; --mush-spacing: 12px; }
     .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
 
     /* ── IDLE BOTTOM ──────────────────────────────────────── */
     .idle-bottom { padding: 12px 14px 14px; }
-    .temp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .temp-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 
     /* ── PRINTING BOTTOM ──────────────────────────────────── */
     .print-info-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px 0; }
