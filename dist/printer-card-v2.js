@@ -155,11 +155,17 @@ class PrinterCardV2 extends HTMLElement {
     this.shadowRoot.querySelectorAll(
       "hui-tile-card, hui-sensor-card, ha-icon-button, ha-state-label-badge, mushroom-template-card"
     ).forEach(el => { if (el.hass !== this._hass) el.hass = this._hass; });
+    // Guard each helper — avoids crashes if DOM isn't fully built yet
+    this._updateJobName();
+    this._updateTimeValues();
+    this._updateProgressBar();
+  }
 
-    // Guard each helper call — avoids crashes if DOM isn't fully built yet
-    if (typeof this._updateJobName === "function") this._updateJobName();
-    if (typeof this._updateTimeValues === "function") this._updateTimeValues();
-    if (typeof this._updateProgressBar === "function") this._updateProgressBar();
+  _updateJobName() {
+    const el = this.shadowRoot.querySelector(".job-name");
+    if (!el) return;
+    const id = this._config.job_name_entity;
+    el.textContent = (id && this._hass?.states[id]) ? (this._hass.states[id].state || "—") : "—";
   }
 
   _updateTimeValues() {
@@ -205,17 +211,13 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   // ── Full structural render ────────────────────────────────
-  // Always rebuild shadow DOM completely — avoids stale state after
-  // hard reloads (Ctrl+F5) where the element may exist but hass arrives late.
   _render() {
     if (!this._hass) return;
     const sr = this.shadowRoot;
     const status = this._lastStatus || this._status();
 
-    // Full rebuild every time — simple and reliable
     sr.innerHTML = `<style>${this._css()}</style>`;
 
-    // Lightbox sits outside ha-card so it can cover the full viewport
     const lb = document.createElement("div");
     lb.id = "lightbox";
     lb.className = "lightbox";
@@ -312,9 +314,7 @@ class PrinterCardV2 extends HTMLElement {
     return wrap;
   }
 
-  // ── Build: Camera area — MJPEG live stream ────────────────
-  // NOTE: printer_image is intentionally NOT shown here — it belongs
-  // only in the header. The camera area always shows the camera stream.
+  // ── Build: Camera area ────────────────────────────────────
   _buildCameraArea() {
     this._stopPoll();
 
@@ -327,20 +327,14 @@ class PrinterCardV2 extends HTMLElement {
       return wrap;
     }
 
-    // Build the stream URL. The access_token is optional — HA also accepts
-    // requests authenticated via session cookie (which is how the browser
-    // is already logged in). Including the token works for both cases and
-    // avoids a 401 on cameras that do expose it.
     const token = this._hass.states[camId]?.attributes?.access_token;
     const tokenParam = token ? `?token=${token}` : "";
-
     const mjpegUrl = `/api/camera_proxy_stream/${camId}${tokenParam}`;
 
     const img = document.createElement("img");
     img.className = "camera-img";
     img.alt = "Kamera";
 
-    // Wire up onerror BEFORE setting src so it fires reliably
     img.onerror = () => this._tryHlsOrPoll(wrap, img, camId, token);
     img.src = mjpegUrl;
 
@@ -348,12 +342,10 @@ class PrinterCardV2 extends HTMLElement {
     this._streamMode = "mjpeg";
 
     wrap.onclick = () => {
-      // Use snapshot for lightbox click (MJPEG stream is already live in-card)
       const snapUrl = `/api/camera_proxy/${camId}${tokenParam}&t=${Date.now()}`;
       this._showLightbox(snapUrl, false);
     };
 
-    // LIVE badge
     const live = document.createElement("div");
     live.className = "live-badge";
     live.innerHTML = `<div class="live-dot"></div>LIVE`;
@@ -362,7 +354,6 @@ class PrinterCardV2 extends HTMLElement {
     return wrap;
   }
 
-  // Fallback: try HLS, then snapshot polling
   _tryHlsOrPoll(wrap, failedImg, camId, token) {
     failedImg.remove();
     const tokenParam = token ? `?token=${token}` : "";
@@ -418,7 +409,6 @@ class PrinterCardV2 extends HTMLElement {
     const infoRow = document.createElement("div");
     infoRow.className = "print-info-row";
 
-    // Thumbnail
     const thumbWrap = document.createElement("div");
     thumbWrap.className = "thumb-wrap";
     const thumbId = this._config.thumbnail_entity;
@@ -438,7 +428,6 @@ class PrinterCardV2 extends HTMLElement {
     }
     infoRow.appendChild(thumbWrap);
 
-    // Job info
     const jobInfo = document.createElement("div");
     jobInfo.className = "job-info";
     const jobName = document.createElement("div");
@@ -456,7 +445,6 @@ class PrinterCardV2 extends HTMLElement {
     infoRow.appendChild(jobInfo);
     wrap.appendChild(infoRow);
 
-    // Progress bar
     const progWrap = document.createElement("div");
     progWrap.className = "progress-wrap";
     const track = document.createElement("div"); track.className = "progress-track";
@@ -465,7 +453,6 @@ class PrinterCardV2 extends HTMLElement {
     track.appendChild(fill); progWrap.appendChild(track);
     wrap.appendChild(progWrap);
 
-    // Sensor grid
     const sensorsWrap = document.createElement("div");
     sensorsWrap.className = "print-sensors";
     const grid = document.createElement("div");
@@ -501,27 +488,29 @@ class PrinterCardV2 extends HTMLElement {
     return wrapper;
   }
 
-  // ── sensor-card factory ─────────────────────────────────────
+  // ── hui-sensor-card factory ───────────────────────────────
   _buildSensorCard(entityId, icon, color) {
     if (!entityId) return null;
     const wrapper = document.createElement("div");
     wrapper.className = `sensor-card-wrap sensor-${color}`;
-    const card = document.createElement("hui-sensor-card");   // ← was "sensor-card"
+    const card = document.createElement("hui-sensor-card");
     card.setConfig({
-      type: "sensor",                                          // ← added
+      type: "sensor",
       entity: entityId,
       icon: icon,
       graph: "line",
       hours_to_show: 1,
       tap_action: { action: "more-info" }
     });
-    if (this._hass) card.hass = this._hass;                   // ← added
+    if (this._hass) card.hass = this._hass;
     this._tiles[entityId] = card;
     wrapper.appendChild(card);
     return wrapper;
   }
 
   // ── Mushroom layer tile ───────────────────────────────────
+  // Uses customElements.whenDefined() to safely defer setConfig
+  // until mushroom-template-card is actually registered by HACS.
   _buildLayerTile() {
     const curId = this._config.current_layer_entity;
     if (!curId) return null;
@@ -542,7 +531,8 @@ class PrinterCardV2 extends HTMLElement {
       entity: curId
     };
 
-    // Defer setConfig until the custom element is actually defined
+    // Defer setConfig until the custom element is actually defined —
+    // avoids "tile.setConfig is not a function" when HACS loads late.
     customElements.whenDefined("mushroom-template-card").then(() => {
       if (typeof tile.setConfig === "function") {
         tile.setConfig(cfg);
@@ -630,7 +620,6 @@ class PrinterCardV2 extends HTMLElement {
     .view-unavail + .camera-area { margin-top: 2px; }
     .no-cam-divider { height: 1px; background: var(--divider-color, rgba(255,255,255,0.1)); }
 
-    /* Shared sizing for <img> (MJPEG/snapshot) and <video> (HLS) */
     .camera-img {
       width: 100%; height: auto; display: block; object-fit: cover;
       aspect-ratio: 16/9; background: #111; margin: 0; padding: 0;
@@ -685,8 +674,8 @@ class PrinterCardV2 extends HTMLElement {
 
     /* ── SENSOR CARD ────────────────────────────────────────── */
     .sensor-card-wrap { border-radius: 12px; overflow: hidden; }
-    .sensor-blue sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
-    .sensor-yellow sensor-card { --card-background: rgba(255,193,7,.08); --icon-color: #ffc107; }
+    .sensor-blue hui-sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
+    .sensor-yellow hui-sensor-card { --card-background: rgba(255,193,7,.08); --icon-color: #ffc107; }
 
     .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
     .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
