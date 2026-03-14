@@ -177,7 +177,13 @@ class PrinterCardV2 extends HTMLElement {
       const u = this._hass.states[id].attributes?.unit_of_measurement || "";
       return (s !== "unavailable" && s !== "unknown") ? `${s} ${u}`.trim() : "—";
     };
-    els[0].textContent = read(this._config.print_time_entity);
+    const elapsedId = this._config.print_time_entity;
+    const elapsedAvail = elapsedId && this._hass?.states[elapsedId] && !["unavailable", "unknown"].includes(this._hass.states[elapsedId].state);
+    if (elapsedAvail) {
+      els[0].textContent = read(elapsedId);
+    } else {
+      els[0].textContent = this._getLayerInfo();
+    }
     els[1].textContent = read(this._config.print_time_left_entity);
     if (els.length >= 3) els[2].textContent = read(this._config.eta_entity);
   }
