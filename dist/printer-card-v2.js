@@ -489,22 +489,34 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   // ── hui-sensor-card factory ───────────────────────────────
+  // The graph SVG renders at 0x0 if hass is set before the card is
+  // attached to a laid-out DOM node. Fix:
+  //   1. Append card to wrapper immediately (gives it real dimensions)
+  //   2. Defer setConfig + hass via whenDefined so the element upgrade
+  //      callback has fired and the internal ResizeObserver can measure.
   _buildSensorCard(entityId, icon, color) {
     if (!entityId) return null;
     const wrapper = document.createElement("div");
     wrapper.className = `sensor-card-wrap sensor-${color}`;
     const card = document.createElement("hui-sensor-card");
-    card.setConfig({
-      type: "sensor",
-      entity: entityId,
-      icon: icon,
-      graph: "line",
-      hours_to_show: 1,
-      tap_action: { action: "more-info" }
-    });
-    if (this._hass) card.hass = this._hass;
-    this._tiles[entityId] = card;
+    // Attach first so layout dimensions are available when graph initialises
     wrapper.appendChild(card);
+    this._tiles[entityId] = card;
+
+    customElements.whenDefined("hui-sensor-card").then(() => {
+      if (typeof card.setConfig === "function") {
+        card.setConfig({
+          type: "sensor",
+          entity: entityId,
+          icon: icon,
+          graph: "line",
+          hours_to_show: 1,
+          tap_action: { action: "more-info" }
+        });
+      }
+      if (this._hass) card.hass = this._hass;
+    });
+
     return wrapper;
   }
 
@@ -673,7 +685,7 @@ class PrinterCardV2 extends HTMLElement {
     .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
 
     /* ── SENSOR CARD ────────────────────────────────────────── */
-    .sensor-card-wrap { border-radius: 12px; overflow: hidden; }
+    .sensor-card-wrap { border-radius: 12px; overflow: hidden; min-height: 80px; display: block; }
     .sensor-blue hui-sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
     .sensor-yellow hui-sensor-card { --card-background: rgba(255,193,7,.08); --icon-color: #ffc107; }
 
