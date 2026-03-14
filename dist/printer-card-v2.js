@@ -1,15 +1,7 @@
 /**
  * 3D Printer Card — Home Assistant Custom Card
- * Uses native HA components for all sensors and controls:
- *   - hui-tile-card      → sensor chips (renders value, unit, icon natively)
- *   - ha-icon-button     → all action buttons
- *   - ha-state-label     → status text
- *   - ha-circular-progress → print progress
- *
  * Camera: live-streams via /api/camera_proxy_stream (MJPEG multipart),
- *         falls back to HLS <video> if the MJPEG stream URL contains "hls",
- *         and finally falls back to the 5-second snapshot poller if the
- *         stream endpoint is unavailable.
+ *         falls back to HLS <video>, then to 5-second snapshot polling.
  */
 
 // ─────────────────────────────────────────────────────────────
@@ -20,20 +12,12 @@ class PrinterCardV2Editor extends HTMLElement {
   set hass(hass) { this._hass = hass; this._render(); }
   setConfig(config) { this._config = { ...config }; this._render(); }
 
-  _baseSchema() {
+  _schema() {
     return [
       { name: "name", label: "Drucker Name", selector: { text: {} } },
       {
-        name: "printer_image",
-        label: "Drucker-Bild",
-        selector: {
-          media: {
-            accept: ["image/*"],
-            clearable: true,
-            image_upload: true,
-            hide_content_type: true,
-          }
-        }
+        name: "printer_image", label: "Drucker-Bild",
+        selector: { media: { accept: ["image/*"], clearable: true, image_upload: true, hide_content_type: true } }
       },
       { name: "printer_status_entity", label: "Drucker-Status Sensor", selector: { entity: {} } },
       { name: "camera_entity", label: "Kamera", selector: { entity: { domain: "camera" } } },
@@ -49,10 +33,6 @@ class PrinterCardV2Editor extends HTMLElement {
       { name: "thumbnail_entity", label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
       { name: "job_name_entity", label: "Dateiname / Job-Name Sensor", selector: { entity: { domain: "sensor" } } },
     ];
-  }
-
-  _schema() {
-    return [...this._baseSchema()];
   }
 
   _render() {
@@ -90,9 +70,7 @@ class PrinterCardV2 extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._lastStatus = null;
-    // Reusable native tile elements, keyed by entity role
     this._tiles = {};
-    // Track whether we are using the MJPEG stream or fell back to polling
     this._streamMode = "mjpeg"; // "mjpeg" | "hls" | "poll"
     this._pollInterval = null;
   }
@@ -121,76 +99,52 @@ class PrinterCardV2 extends HTMLElement {
     }
   }
 
-  connectedCallback() {
-    // Polling is only started on-demand when MJPEG/HLS both fail
-  }
+  disconnectedCallback() { this._stopPoll(); }
 
-  disconnectedCallback() {
-    this._stopPoll();
-  }
-
-  // ── Polling fallback (only used when stream fails) ────────
+  // ── Polling fallback ──────────────────────────────────────
   _startPoll() {
     if (this._pollInterval) return;
     this._pollInterval = setInterval(() => this._pollSnapshot(), 5000);
   }
   _stopPoll() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-      this._pollInterval = null;
-    }
+    if (this._pollInterval) { clearInterval(this._pollInterval); this._pollInterval = null; }
   }
 
   _pollSnapshot() {
     const img = this.shadowRoot.querySelector(".camera-img");
     if (!img || !this._config.camera_entity || !this._hass) return;
-    const token = this._hass.states[this._config.camera_entity]?.attributes?.access_token;
-    if (!token) return;
-    const src = `/api/camera_proxy/${this._config.camera_entity}?token=${token}&t=${Date.now()}`;
+    const camId = this._config.camera_entity;
+    const token = this._hass.states[camId]?.attributes?.access_token;
+    const src = token
+      ? `/api/camera_proxy/${camId}?token=${token}&t=${Date.now()}`
+      : `/api/camera_proxy/${camId}?t=${Date.now()}`;
     const pre = new Image();
-    pre.onload = () => {
-      img.src = src;
-      // Sync lightbox if open and showing camera
-      const lb = this.shadowRoot.getElementById("lightbox");
-      if (lb?.classList.contains("active")) {
-        const lbImg = lb.querySelector("img");
-        if (lbImg?.src.includes("camera_proxy")) lbImg.src = src;
-      }
-    };
+    pre.onload = () => { img.src = src; };
     pre.src = src;
   }
 
-  // ── Image resolution helper ─────────────────────────────
+  // ── Printer image URL resolver ────────────────────────────
   _getPrinterImage() {
     const img = this._config.printer_image;
     if (!img) return null;
     const id = img.media_content_id || img;
     if (!id) return null;
-
     if (id.startsWith("http") || id.startsWith("/local/") || id.startsWith("/api/")) return id;
-
-    if (id.startsWith("media-source://image_upload/")) {
-      const uuid = id.replace("media-source://image_upload/", "");
-      return `/api/image/serve/${uuid}/original`;
-    }
-
-    if (id.startsWith("media-source://media_source/local/")) {
+    if (id.startsWith("media-source://image_upload/"))
+      return `/api/image/serve/${id.replace("media-source://image_upload/", "")}/original`;
+    if (id.startsWith("media-source://media_source/local/"))
       return id.replace("media-source://media_source/local/", "/local/");
-    }
-
     return null;
   }
 
-  // ── Status detection ─────────────────────────────────────
+  // ── Status detection ──────────────────────────────────────
   _status() {
     if (!this._config.printer_status_entity || !this._hass) return "unavailable";
     const stateObj = this._hass.states[this._config.printer_status_entity];
     if (!stateObj) return "unavailable";
     const raw = stateObj.state.toLowerCase();
-    if (raw === "unavailable" || raw === "unknown" || raw === "off" || raw === "offline") return "unavailable";
-    if (raw.includes("print") || raw.includes("printing") || raw.includes("running") || raw.includes("working")) return "printing";
-    if (raw.includes("idle") || raw.includes("standby") || raw.includes("ready") ||
-      raw.includes("finish") || raw.includes("operational") || raw === "on") return "idle";
+    if (["unavailable", "unknown", "off", "offline"].includes(raw)) return "unavailable";
+    if (raw.includes("print") || raw.includes("running") || raw.includes("working")) return "printing";
     return "idle";
   }
 
@@ -198,37 +152,32 @@ class PrinterCardV2 extends HTMLElement {
   _propagateHass() {
     if (!this.shadowRoot) return;
     this.shadowRoot.querySelectorAll(
-      "hui-tile-card, ha-icon-button, ha-state-label-badge, hui-image-card, mushroom-template-card"
+      "hui-tile-card, ha-icon-button, ha-state-label-badge, mushroom-template-card"
     ).forEach(el => { if (el.hass !== this._hass) el.hass = this._hass; });
-
     this._updateJobName();
     this._updateTimeValues();
     this._updateProgressBar();
   }
 
   _updateJobName() {
-    const jobNameEl = this.shadowRoot.querySelector(".job-name");
-    if (!jobNameEl) return;
-    const jobId = this._config.job_name_entity;
-    if (jobId && this._hass?.states[jobId]) {
-      jobNameEl.textContent = this._hass.states[jobId].state || "—";
-    }
+    const el = this.shadowRoot.querySelector(".job-name");
+    if (!el) return;
+    const id = this._config.job_name_entity;
+    el.textContent = (id && this._hass?.states[id]) ? (this._hass.states[id].state || "—") : "—";
   }
 
   _updateTimeValues() {
-    const timeValues = this.shadowRoot.querySelectorAll(".t-value");
-    if (timeValues.length < 2) return;
-
+    const els = this.shadowRoot.querySelectorAll(".t-value");
+    if (els.length < 2) return;
     const read = (id) => {
       if (!id || !this._hass?.states[id]) return "—";
       const s = this._hass.states[id].state;
       const u = this._hass.states[id].attributes?.unit_of_measurement || "";
       return (s !== "unavailable" && s !== "unknown") ? `${s} ${u}`.trim() : "—";
     };
-
-    timeValues[0].textContent = read(this._config.print_time_entity);
-    timeValues[1].textContent = read(this._config.print_time_left_entity);
-    if (timeValues.length >= 3) timeValues[2].textContent = read(this._config.eta_entity);
+    els[0].textContent = read(this._config.print_time_entity);
+    els[1].textContent = read(this._config.print_time_left_entity);
+    if (els.length >= 3) els[2].textContent = read(this._config.eta_entity);
   }
 
   _updateProgressBar() {
@@ -239,28 +188,19 @@ class PrinterCardV2 extends HTMLElement {
   _showLightbox(src, isVideo) {
     const lb = this.shadowRoot.getElementById("lightbox");
     if (!lb) return;
-
-    // Clean previous content
     lb.innerHTML = "";
-
     if (isVideo) {
-      // For HLS streams, show video in lightbox
       const video = document.createElement("video");
       video.className = "lb-video";
       video.src = src;
-      video.autoplay = true;
-      video.muted = true;
-      video.playsInline = true;
-      video.controls = true;
+      video.autoplay = true; video.muted = true; video.playsInline = true; video.controls = true;
       lb.appendChild(video);
     } else {
       const img = document.createElement("img");
       img.src = src;
       lb.appendChild(img);
     }
-
     lb.onclick = () => {
-      // Stop video if playing in lightbox
       const v = lb.querySelector("video");
       if (v) v.src = "";
       lb.classList.remove("active");
@@ -269,43 +209,36 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   // ── Full structural render ────────────────────────────────
+  // Always rebuild shadow DOM completely — avoids stale state after
+  // hard reloads (Ctrl+F5) where the element may exist but hass arrives late.
   _render() {
     if (!this._hass) return;
     const sr = this.shadowRoot;
     const status = this._lastStatus || this._status();
 
-    if (!sr.querySelector("style")) {
-      sr.innerHTML = `<style>${this._css()}</style>`;
-    }
+    // Full rebuild every time — simple and reliable
+    sr.innerHTML = `<style>${this._css()}</style>`;
 
-    // Lightbox
-    let lb = sr.getElementById("lightbox");
-    if (!lb) {
-      lb = document.createElement("div");
-      lb.id = "lightbox";
-      lb.className = "lightbox";
-      sr.appendChild(lb);
-    }
+    // Lightbox sits outside ha-card so it can cover the full viewport
+    const lb = document.createElement("div");
+    lb.id = "lightbox";
+    lb.className = "lightbox";
+    sr.appendChild(lb);
 
-    // Card
-    let card = sr.querySelector("ha-card");
-    if (!card) {
-      card = document.createElement("ha-card");
-      card.className = "printer-card-v2";
-      sr.appendChild(card);
-    }
+    const card = document.createElement("ha-card");
+    card.className = "printer-card-v2";
+    sr.appendChild(card);
 
-    card.innerHTML = "";
     if (status === "unavailable") {
       card.appendChild(this._buildUnavail());
     } else if (status === "idle") {
       card.appendChild(this._buildHeader(status));
-      if (this._config.camera_entity) card.appendChild(this._buildCameraArea(status));
+      if (this._config.camera_entity) card.appendChild(this._buildCameraArea());
       const bottom = this._buildIdleBottom();
       if (bottom) card.appendChild(bottom);
     } else {
       card.appendChild(this._buildHeader(status));
-      if (this._config.camera_entity) card.appendChild(this._buildCameraArea(status));
+      if (this._config.camera_entity) card.appendChild(this._buildCameraArea());
       const bottom = this._buildPrintingBottom();
       if (bottom) card.appendChild(bottom);
     }
@@ -313,172 +246,133 @@ class PrinterCardV2 extends HTMLElement {
     this._propagateHass();
   }
 
-  // ── Build: Unavailable view ───────────────────────────────
+  // ── Build: Unavailable ────────────────────────────────────
   _buildUnavail() {
     const wrap = document.createElement("div");
     wrap.className = "view-unavail";
-
     const imgUrl = this._getPrinterImage();
     if (imgUrl) {
       const imgWrap = document.createElement("div");
       imgWrap.className = "unavail-printer-image";
-      const img = document.createElement("img");
-      img.src = imgUrl;
-      img.alt = "Drucker";
-      imgWrap.appendChild(img);
-      wrap.appendChild(imgWrap);
+      const img = document.createElement("img"); img.src = imgUrl; img.alt = "Drucker";
+      imgWrap.appendChild(img); wrap.appendChild(imgWrap);
     } else {
       const icon = document.createElement("ha-icon");
-      icon.setAttribute("icon", "mdi:printer-3d");
-      icon.className = "unavail-icon-el";
+      icon.setAttribute("icon", "mdi:printer-3d"); icon.className = "unavail-icon-el";
       wrap.appendChild(icon);
     }
-
     const text = document.createElement("div");
-    text.innerHTML = `
-      <div class="unavail-name">${this._config.name || "3D-Drucker"}</div>
-      <div class="unavail-sub">Offline</div>`;
-
+    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">Offline</div>`;
     const powerWrap = document.createElement("div");
     powerWrap.className = "power-wrap";
     powerWrap.innerHTML = `<span class="power-label">POWER</span>`;
     powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-on", "power-on"));
-
     wrap.appendChild(text);
     wrap.appendChild(powerWrap);
     return wrap;
   }
 
-  // ── Build: Camera area — MJPEG live stream ───────────────
-  _buildCameraArea(status) {
-    // Stop any existing poll before deciding stream mode
+  // ── Build: Header (idle / printing) ──────────────────────
+  _buildHeader(status) {
+    const wrap = document.createElement("div");
+    wrap.className = "view-unavail";
+    const imgUrl = this._getPrinterImage();
+    if (imgUrl) {
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "unavail-printer-image";
+      const img = document.createElement("img"); img.src = imgUrl; img.alt = "Drucker";
+      imgWrap.appendChild(img); wrap.appendChild(imgWrap);
+    } else {
+      const icon = document.createElement("ha-icon");
+      icon.setAttribute("icon", "mdi:printer-3d"); icon.className = "unavail-icon-el";
+      wrap.appendChild(icon);
+    }
+    const statusText = status === "printing" ? "Printing..." : "Idle";
+    const text = document.createElement("div");
+    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${statusText}</div>`;
+    const powerWrap = document.createElement("div");
+    powerWrap.className = "power-wrap";
+    powerWrap.innerHTML = `<span class="power-label">POWER</span>`;
+    if (status !== "printing") powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-on", "power-on"));
+    wrap.appendChild(text);
+    wrap.appendChild(powerWrap);
+    return wrap;
+  }
+
+  // ── Build: Camera area — MJPEG live stream ────────────────
+  // NOTE: printer_image is intentionally NOT shown here — it belongs
+  // only in the header. The camera area always shows the camera stream.
+  _buildCameraArea() {
     this._stopPoll();
 
     const wrap = document.createElement("div");
     wrap.className = "camera-area";
 
     const camId = this._config.camera_entity;
-    const token = camId && this._hass ? this._hass.states[camId]?.attributes?.access_token : null;
-
-    if (camId && token) {
-      // ── Live stream — try MJPEG first ──────────────────────
-      // /api/camera_proxy_stream delivers a multipart/x-mixed-replace MJPEG
-      // stream which browsers display natively inside an <img> tag.
-      const mjpegUrl = `/api/camera_proxy_stream/${camId}?token=${token}`;
-
-      const img = document.createElement("img");
-      img.className = "camera-img";
-      img.alt = "Kamera";
-      img.src = mjpegUrl;
-
-      // If MJPEG fails (camera doesn't support it), fall back gracefully
-      img.onerror = () => {
-        this._tryHlsOrPoll(wrap, img, camId, token);
-      };
-
-      wrap.appendChild(img);
-      wrap.onclick = () => {
-        // Snapshot for lightbox (MJPEG src already shows live in-card)
-        const snapUrl = `/api/camera_proxy/${camId}?token=${token}&t=${Date.now()}`;
-        this._showLightbox(snapUrl, false);
-      };
-      this._streamMode = "mjpeg";
-
-    } else {
+    if (!camId || !this._hass) {
       wrap.appendChild(this._cameraPlaceholder());
+      return wrap;
     }
 
-    // LIVE badge — shown for any live stream mode
-    if (camId && token) {
-      const live = document.createElement("div");
-      live.className = "live-badge";
-      live.innerHTML = `<div class="live-dot"></div>LIVE`;
-      wrap.appendChild(live);
-    }
+    // Build the stream URL. The access_token is optional — HA also accepts
+    // requests authenticated via session cookie (which is how the browser
+    // is already logged in). Including the token works for both cases and
+    // avoids a 401 on cameras that do expose it.
+    const token = this._hass.states[camId]?.attributes?.access_token;
+    const tokenParam = token ? `?token=${token}` : "";
+
+    const mjpegUrl = `/api/camera_proxy_stream/${camId}${tokenParam}`;
+
+    const img = document.createElement("img");
+    img.className = "camera-img";
+    img.alt = "Kamera";
+
+    // Wire up onerror BEFORE setting src so it fires reliably
+    img.onerror = () => this._tryHlsOrPoll(wrap, img, camId, token);
+    img.src = mjpegUrl;
+
+    wrap.appendChild(img);
+    this._streamMode = "mjpeg";
+
+    wrap.onclick = () => {
+      // Use snapshot for lightbox click (MJPEG stream is already live in-card)
+      const snapUrl = `/api/camera_proxy/${camId}${tokenParam}&t=${Date.now()}`;
+      this._showLightbox(snapUrl, false);
+    };
+
+    // LIVE badge
+    const live = document.createElement("div");
+    live.className = "live-badge";
+    live.innerHTML = `<div class="live-dot"></div>LIVE`;
+    wrap.appendChild(live);
 
     return wrap;
   }
 
-  /**
-   * Called when the MJPEG stream <img> fires onerror.
-   * Tries to replace it with an HLS <video>; if that also fails,
-   * falls back to the 5-second snapshot poller.
-   */
+  // Fallback: try HLS, then snapshot polling
   _tryHlsOrPoll(wrap, failedImg, camId, token) {
-    // Remove the broken img
     failedImg.remove();
-
-    // HA exposes an HLS stream when the camera supports it (e.g. Frigate, ONVIF)
-    const hlsUrl = `/api/camera_proxy_stream/${camId}?token=${token}&format=hls`;
+    const tokenParam = token ? `?token=${token}` : "";
+    const hlsUrl = `/api/camera_proxy_stream/${camId}${tokenParam}${token ? "&" : "?"}format=hls`;
 
     const video = document.createElement("video");
     video.className = "camera-img";
-    video.autoplay = true;
-    video.muted = true;
-    video.playsInline = true;
-    video.loop = true;
+    video.autoplay = true; video.muted = true; video.playsInline = true; video.loop = true;
 
     video.onerror = () => {
-      // Both stream types failed — fall back to snapshot polling
       video.remove();
       this._streamMode = "poll";
-      const snapUrl = `/api/camera_proxy/${camId}?token=${token}&t=${Date.now()}`;
+      const snapUrl = `/api/camera_proxy/${camId}${tokenParam}&t=${Date.now()}`;
       const img = document.createElement("img");
-      img.className = "camera-img";
-      img.alt = "Kamera";
-      img.src = snapUrl;
-      // Insert before the live badge (last child)
-      wrap.insertBefore(img, wrap.lastChild);
+      img.className = "camera-img"; img.alt = "Kamera"; img.src = snapUrl;
+      wrap.insertBefore(img, wrap.querySelector(".live-badge"));
       this._startPoll();
     };
 
-    // Insert before live badge
-    wrap.insertBefore(video, wrap.lastChild);
-    video.src = hlsUrl; // set src after onerror is wired up
+    video.src = hlsUrl;
+    wrap.insertBefore(video, wrap.querySelector(".live-badge"));
     this._streamMode = "hls";
-
-    // Update click handler for video lightbox
     wrap.onclick = () => this._showLightbox(hlsUrl, true);
-  }
-
-  // ── Build: Header ─────────────────────────────────────────
-  _buildHeader(status) {
-    const wrap = document.createElement("div");
-    wrap.className = "view-unavail";
-
-    const imgUrl = this._getPrinterImage();
-    if (imgUrl) {
-      const imgWrap = document.createElement("div");
-      imgWrap.className = "unavail-printer-image";
-      const img = document.createElement("img");
-      img.src = imgUrl;
-      img.alt = "Drucker";
-      imgWrap.appendChild(img);
-      wrap.appendChild(imgWrap);
-    } else {
-      const icon = document.createElement("ha-icon");
-      icon.setAttribute("icon", "mdi:printer-3d");
-      icon.className = "unavail-icon-el";
-      wrap.appendChild(icon);
-    }
-
-    const statusText = status === "printing" ? "Printing..." : (status === "unavailable" ? "Offline" : "Idle");
-    const text = document.createElement("div");
-    text.innerHTML = `
-      <div class="unavail-name">${this._config.name || "3D-Drucker"}</div>
-      <div class="unavail-sub">${statusText}</div>`;
-
-    const powerWrap = document.createElement("div");
-    powerWrap.className = "power-wrap";
-    powerWrap.innerHTML = `<span class="power-label">POWER</span>`;
-
-    if (status !== "printing") {
-      powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-on", "power-on"));
-    }
-
-    wrap.appendChild(text);
-    wrap.appendChild(powerWrap);
-    return wrap;
   }
 
   _cameraPlaceholder() {
@@ -492,21 +386,13 @@ class PrinterCardV2 extends HTMLElement {
   _buildIdleBottom() {
     const wrap = document.createElement("div");
     wrap.className = "idle-bottom";
-
     const tempRow = document.createElement("div");
     tempRow.className = "temp-row";
-
     const bedTile = this._buildTile(this._config.bed_temp_entity, "mdi:thermometer", "blue");
     const nozzleTile = this._buildTile(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat", "blue");
-
     if (bedTile) tempRow.appendChild(bedTile);
     if (nozzleTile) tempRow.appendChild(nozzleTile);
-
-    if (tempRow.children.length > 0) {
-      wrap.appendChild(tempRow);
-      return wrap;
-    }
-
+    if (tempRow.children.length > 0) { wrap.appendChild(tempRow); return wrap; }
     return null;
   }
 
@@ -514,23 +400,19 @@ class PrinterCardV2 extends HTMLElement {
   _buildPrintingBottom() {
     const wrap = document.createElement("div");
 
-    // Info row: thumbnail + job name + times
     const infoRow = document.createElement("div");
     infoRow.className = "print-info-row";
 
+    // Thumbnail
     const thumbWrap = document.createElement("div");
     thumbWrap.className = "thumb-wrap";
-
     const thumbId = this._config.thumbnail_entity;
     const thumbUrl = thumbId ? (this._hass?.states[thumbId]?.state?.startsWith("http")
       ? this._hass.states[thumbId].state
       : this._hass?.states[thumbId]?.attributes?.entity_picture) : null;
-
     if (thumbUrl) {
       const img = document.createElement("img");
-      img.className = "thumb-sm";
-      img.src = thumbUrl;
-      img.alt = "Modell";
+      img.className = "thumb-sm"; img.src = thumbUrl; img.alt = "Modell";
       thumbWrap.appendChild(img);
       thumbWrap.onclick = () => this._showLightbox(thumbUrl, false);
     } else {
@@ -541,14 +423,13 @@ class PrinterCardV2 extends HTMLElement {
     }
     infoRow.appendChild(thumbWrap);
 
+    // Job info
     const jobInfo = document.createElement("div");
     jobInfo.className = "job-info";
-
     const jobName = document.createElement("div");
     jobName.className = "job-name";
     const jobId = this._config.job_name_entity;
-    jobName.textContent = (jobId && this._hass?.states[jobId])
-      ? (this._hass.states[jobId].state || "—") : "—";
+    jobName.textContent = (jobId && this._hass?.states[jobId]) ? (this._hass.states[jobId].state || "—") : "—";
     jobInfo.appendChild(jobName);
 
     const timeRow = document.createElement("div");
@@ -563,13 +444,10 @@ class PrinterCardV2 extends HTMLElement {
     // Progress bar
     const progWrap = document.createElement("div");
     progWrap.className = "progress-wrap";
-    const track = document.createElement("div");
-    track.className = "progress-track";
-    const fill = document.createElement("div");
-    fill.className = "progress-fill";
+    const track = document.createElement("div"); track.className = "progress-track";
+    const fill = document.createElement("div"); fill.className = "progress-fill";
     fill.style.width = this._pct() + "%";
-    track.appendChild(fill);
-    progWrap.appendChild(track);
+    track.appendChild(fill); progWrap.appendChild(track);
     wrap.appendChild(progWrap);
 
     // Sensor grid
@@ -577,90 +455,56 @@ class PrinterCardV2 extends HTMLElement {
     sensorsWrap.className = "print-sensors";
     const grid = document.createElement("div");
     grid.className = "sensor-grid-2";
-
-    const tiles = [
+    [
       this._buildLayerTile(),
       this._buildTile(this._config.print_progress_entity, "mdi:percent", "orange"),
       this._buildTile(this._config.bed_temp_entity, "mdi:radiator", "orange"),
       this._buildTile(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat", "orange"),
       this._buildTile(this._config.print_time_entity, "mdi:clock-outline", "orange"),
       this._buildTile(this._config.print_time_left_entity, "mdi:clock-end", "orange"),
-      this._buildTile(this._config.eta_entity, "mdi:clock-check-outline", "orange")
-    ];
-
-    tiles.forEach(tile => { if (tile) grid.appendChild(tile); });
-
-    if (grid.children.length > 0) {
-      sensorsWrap.appendChild(grid);
-      wrap.appendChild(sensorsWrap);
-    }
+      this._buildTile(this._config.eta_entity, "mdi:clock-check-outline", "orange"),
+    ].forEach(t => { if (t) grid.appendChild(t); });
+    if (grid.children.length > 0) { sensorsWrap.appendChild(grid); wrap.appendChild(sensorsWrap); }
 
     return wrap;
   }
 
-  // ── Native hui-tile-card factory ─────────────────────────
+  // ── hui-tile-card factory ─────────────────────────────────
   _buildTile(entityId, fallbackIcon, color) {
     if (!entityId) return null;
-
     const wrapper = document.createElement("div");
     wrapper.className = `tile-wrap tile-${color}`;
-
     const stateObj = this._hass?.states[entityId];
     const attrName = stateObj?.attributes?.friendly_name || entityId;
-    const cleanName = attrName.includes(' ')
-      ? attrName.split(' ').slice(1).join(' ')
-      : attrName;
-
+    const cleanName = attrName.includes(' ') ? attrName.split(' ').slice(1).join(' ') : attrName;
     const tile = document.createElement("hui-tile-card");
-    tile.setConfig({
-      type: "tile",
-      entity: entityId,
-      name: cleanName,
-      icon: fallbackIcon,
-      color: color,
-      show_entity_picture: false,
-      tap_action: { action: "more-info" },
-    });
-
+    tile.setConfig({ type: "tile", entity: entityId, name: cleanName, icon: fallbackIcon,
+      color, show_entity_picture: false, tap_action: { action: "more-info" } });
     this._tiles[entityId] = tile;
     wrapper.appendChild(tile);
     return wrapper;
   }
 
-  // Layer tile: two entities combined
+  // ── Mushroom layer tile ───────────────────────────────────
   _buildLayerTile() {
     const curId = this._config.current_layer_entity;
     if (!curId) return null;
-
     const totId = this._config.total_layers_entity;
-    let secondary = `{% set cur = states('${curId}') %}{% if cur not in ['unavailable', 'unknown', 'none'] %}{{ cur }}{% else %}—{% endif %}`;
-    if (totId) {
-      secondary = `{% set cur = states('${curId}') %}{% set tot = states('${totId}') %}{% if cur not in ['unavailable', 'unknown', 'none'] and tot not in ['unavailable', 'unknown', 'none'] %}{{ cur }} / {{ tot }}{% else %}—{% endif %}`;
-    }
-
+    let secondary = `{% set cur = states('${curId}') %}{% if cur not in ['unavailable','unknown','none'] %}{{ cur }}{% else %}—{% endif %}`;
+    if (totId) secondary = `{% set cur = states('${curId}') %}{% set tot = states('${totId}') %}{% if cur not in ['unavailable','unknown','none'] and tot not in ['unavailable','unknown','none'] %}{{ cur }} / {{ tot }}{% else %}—{% endif %}`;
     const tile = document.createElement("mushroom-template-card");
     tile.className = "mushroom-layer-tile";
-    tile.setConfig({
-      type: "custom:mushroom-template-card",
-      primary: "Layer",
-      secondary: secondary,
-      icon: "mdi:layers-triple",
-      icon_color: "orange",
-      layout: "horizontal",
-      tap_action: { action: "more-info" },
-      entity: curId
-    });
-
+    tile.setConfig({ type: "custom:mushroom-template-card", primary: "Layer", secondary,
+      icon: "mdi:layers-triple", icon_color: "orange", layout: "horizontal",
+      tap_action: { action: "more-info" }, entity: curId });
     return tile;
   }
 
-  // Time column
+  // ── Time column ───────────────────────────────────────────
   _buildTimeCol(label, entityId, accent) {
     const wrap = document.createElement("div");
     wrap.style.textAlign = accent ? "right" : "left";
-    const l = document.createElement("div");
-    l.className = "t-label";
-    l.textContent = label;
+    const l = document.createElement("div"); l.className = "t-label"; l.textContent = label;
     wrap.appendChild(l);
     const v = document.createElement("div");
     v.className = "t-value" + (accent ? " remaining" : "");
@@ -668,9 +512,7 @@ class PrinterCardV2 extends HTMLElement {
       const state = this._hass.states[entityId].state;
       const unit = this._hass.states[entityId].attributes?.unit_of_measurement || "";
       v.textContent = (state !== "unavailable" && state !== "unknown") ? `${state} ${unit}`.trim() : "—";
-    } else {
-      v.textContent = "—";
-    }
+    } else { v.textContent = "—"; }
     wrap.appendChild(v);
     return wrap;
   }
@@ -678,26 +520,19 @@ class PrinterCardV2 extends HTMLElement {
   // ── ha-icon-button factory ────────────────────────────────
   _makeIconButton(icon, cssClass, action) {
     const btn = document.createElement("ha-icon-button");
-    btn.className = `cam-action-btn ${cssClass}`;
-    btn.dataset.action = action;
-    const inner = document.createElement("ha-icon");
-    inner.setAttribute("icon", icon);
+    btn.className = `cam-action-btn ${cssClass}`; btn.dataset.action = action;
+    const inner = document.createElement("ha-icon"); inner.setAttribute("icon", icon);
     btn.appendChild(inner);
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this._doAction(action);
-    });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); this._doAction(action); });
     return btn;
   }
 
-  // ── Progress helper ───────────────────────────────────────
   _pct() {
     const id = this._config.print_progress_entity;
     if (!id || !this._hass) return 0;
     return Math.min(parseFloat(this._hass.states[id]?.state) || 0, 100);
   }
 
-  // ── Actions ───────────────────────────────────────────────
   _doAction(action) {
     const c = this._config;
     if (action === "power-on") this._svc("homeassistant", "turn_on", { entity_id: c.power_switch_entity });
@@ -713,38 +548,21 @@ class PrinterCardV2 extends HTMLElement {
     :host { display: block; }
     * { box-sizing: border-box; }
 
-    ha-card.printer-card-v2 {
-      overflow: hidden;
-      border-radius: var(--ha-card-border-radius, 16px);
-      padding: 0;
-    }
+    ha-card.printer-card-v2 { overflow: hidden; border-radius: var(--ha-card-border-radius, 16px); padding: 0; }
 
-    /* ── UNAVAILABLE ─────────────────────────────────────── */
-    .view-unavail {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px;
-    }
+    /* ── HEADER / UNAVAILABLE ────────────────────────────── */
+    .view-unavail { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
     .unavail-icon-el {
-      --mdc-icon-size: 24px;
-      color: var(--secondary-text-color);
-      width: 40px; height: 40px;
-      background: var(--secondary-background-color, #f5f5f5);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
+      --mdc-icon-size: 24px; color: var(--secondary-text-color);
+      width: 40px; height: 40px; background: var(--secondary-background-color, #f5f5f5);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .unavail-printer-image {
-      width: 60px; height: 60px;
-      flex-shrink: 0;
+      width: 60px; height: 60px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: var(--secondary-background-color, #f5f5f5);
-      border-radius: 8px;
-      overflow: hidden;
+      background: var(--secondary-background-color, #f5f5f5); border-radius: 8px; overflow: hidden;
     }
-    .unavail-printer-image img {
-      width: 100%; height: 100%;
-      object-fit: contain;
-    }
+    .unavail-printer-image img { width: 100%; height: 100%; object-fit: contain; }
     .unavail-name { font-size: .95rem; font-weight: 600; }
     .unavail-sub  { font-size: .78rem; color: var(--secondary-text-color); margin-top: 1px; }
     .power-wrap   { display: flex; align-items: center; gap: 6px; margin-left: auto; }
@@ -753,32 +571,19 @@ class PrinterCardV2 extends HTMLElement {
 
     /* ── CAMERA ──────────────────────────────────────────── */
     .camera-area {
-      position: relative;
-      width: 100%;
-      background: #111;
-      line-height: 0;
-      margin: 0; padding: 0;
-      cursor: zoom-in;
+      position: relative; width: 100%; background: #111;
+      line-height: 0; margin: 0; padding: 0; cursor: zoom-in;
     }
     .view-unavail + .camera-area { margin-top: 2px; }
 
-    /* Both <img> (MJPEG/snapshot) and <video> (HLS) share the same sizing */
+    /* Shared sizing for <img> (MJPEG/snapshot) and <video> (HLS) */
     .camera-img {
-      width: 100%;
-      height: auto;
-      display: block;
-      object-fit: cover;
-      aspect-ratio: 16/9;
-      background: #111;
-      margin: 0; padding: 0;
+      width: 100%; height: auto; display: block; object-fit: cover;
+      aspect-ratio: 16/9; background: #111; margin: 0; padding: 0;
     }
-
-    .printer-custom-img { object-fit: contain; background: #1a1a1a; }
-
     .camera-no {
       width: 100%; height: 180px; display: flex; align-items: center;
-      justify-content: center; background: #1a1a1a; color: #555; gap: 8px;
-      font-size: .85rem;
+      justify-content: center; background: #1a1a1a; color: #555; gap: 8px; font-size: .85rem;
     }
     .camera-no ha-icon { --mdc-icon-size: 22px; }
 
@@ -786,20 +591,11 @@ class PrinterCardV2 extends HTMLElement {
     .lightbox {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.92); z-index: 9999;
-      display: none; align-items: center; justify-content: center;
-      cursor: zoom-out;
+      display: none; align-items: center; justify-content: center; cursor: zoom-out;
     }
     .lightbox.active { display: flex; }
-    .lightbox img {
-      max-width: 95%; max-height: 95%; border-radius: 8px;
-      box-shadow: 0 0 50px rgba(0,0,0,0.8);
-      object-fit: contain;
-    }
-    .lb-video {
-      max-width: 95%; max-height: 95%; border-radius: 8px;
-      box-shadow: 0 0 50px rgba(0,0,0,0.8);
-      background: #000;
-    }
+    .lightbox img { max-width: 95%; max-height: 95%; border-radius: 8px; box-shadow: 0 0 50px rgba(0,0,0,0.8); object-fit: contain; }
+    .lb-video { max-width: 95%; max-height: 95%; border-radius: 8px; box-shadow: 0 0 50px rgba(0,0,0,0.8); background: #000; }
 
     /* ── LIVE BADGE ───────────────────────────────────────── */
     .live-badge {
@@ -807,99 +603,57 @@ class PrinterCardV2 extends HTMLElement {
       display: flex; align-items: center; gap: 5px;
       font-size: .72rem; font-weight: 700; color: #fff; letter-spacing: .05em;
     }
-    .live-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: #f44336;
-      animation: blink 1.4s ease infinite;
-    }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #f44336; animation: blink 1.4s ease infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* ── ICON BUTTONS ─────────────────────────────────────── */
-    .cam-action-btn {
-      --mdc-icon-button-size: 40px;
-      --mdc-icon-size: 20px;
-      border-radius: 50%;
-    }
-    .btn-power-on  { background: rgba(76,175,80,.15); color: #4caf50; }
-    .btn-cam-off   { background: rgba(244,67,54,.15); backdrop-filter: blur(12px); color: #f44336; }
+    /* ── BUTTONS ──────────────────────────────────────────── */
+    .cam-action-btn { --mdc-icon-button-size: 40px; --mdc-icon-size: 20px; border-radius: 50%; }
+    .btn-power-on { background: rgba(76,175,80,.15); color: #4caf50; }
 
-    /* ── TILE WRAPPERS ───────────────────────────────────── */
+    /* ── TILES ────────────────────────────────────────────── */
     .tile-wrap { border-radius: 12px; overflow: hidden; position: relative; }
     .tile-blue hui-tile-card {
-      --tile-color: #2196f3; --rgb-tile-color: 33, 150, 243; --state-color: #2196f3;
+      --tile-color: #2196f3; --rgb-tile-color: 33,150,243; --state-color: #2196f3;
       --ha-card-background: rgba(33,150,243,.08); --ha-card-box-shadow: none;
-      --ha-card-border-radius: 12px; --primary-text-color: white;
-      --secondary-text-color: #2196f3; margin: 0;
+      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: #2196f3; margin: 0;
     }
     .tile-orange hui-tile-card {
-      --tile-color: #ff6d00; --rgb-tile-color: 255, 109, 0; --state-color: #ff6d00;
+      --tile-color: #ff6d00; --rgb-tile-color: 255,109,0; --state-color: #ff6d00;
       --ha-card-background: rgba(255,109,0,.07); --ha-card-box-shadow: none;
-      --ha-card-border-radius: 12px; --primary-text-color: white;
-      --secondary-text-color: #ff6d00; margin: 0;
+      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: #ff6d00; margin: 0;
     }
-    .tile-orange hui-tile-card .primary,
-    .tile-orange hui-tile-card ha-tile-info .primary { color: white !important; }
-    .tile-orange hui-tile-card .state,
-    .tile-orange hui-tile-card .value,
-    .tile-orange hui-tile-card .secondary,
-    .tile-orange hui-tile-card ha-tile-info .secondary { color: #ff6d00 !important; }
-    .tile-blue hui-tile-card .primary,
-    .tile-blue hui-tile-card ha-tile-info .primary { color: white !important; }
-    .tile-blue hui-tile-card .state,
-    .tile-blue hui-tile-card .value,
-    .tile-blue hui-tile-card .secondary,
-    .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
+    .tile-orange hui-tile-card .primary, .tile-orange hui-tile-card ha-tile-info .primary { color: white !important; }
+    .tile-orange hui-tile-card .state, .tile-orange hui-tile-card .value,
+    .tile-orange hui-tile-card .secondary, .tile-orange hui-tile-card ha-tile-info .secondary { color: #ff6d00 !important; }
+    .tile-blue hui-tile-card .primary, .tile-blue hui-tile-card ha-tile-info .primary { color: white !important; }
+    .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
+    .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
 
-    /* Mushroom Layer Tile */
-    .mushroom-layer-tile {
-      margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none;
-      --ha-card-background: rgba(255,109,0,.07);
-      --mush-icon-size: 40px; --mush-spacing: 12px;
-    }
-    .mushroom-layer-tile ha-card {
-      background: transparent !important; border: none !important; box-shadow: none !important;
-    }
+    .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --ha-card-background: rgba(255,109,0,.07); --mush-icon-size: 40px; --mush-spacing: 12px; }
+    .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
 
-    /* ── IDLE BOTTOM ─────────────────────────────────────── */
+    /* ── IDLE BOTTOM ──────────────────────────────────────── */
     .idle-bottom { padding: 12px 14px 14px; }
-    .temp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .temp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-    /* ── PRINTING BOTTOM ─────────────────────────────────── */
-    .print-info-row {
-      display: flex; align-items: center; gap: 12px; padding: 12px 14px 0;
-    }
-    .thumb-wrap {
-      width: 54px; height: 54px; border-radius: 8px;
-      overflow: hidden; flex-shrink: 0; cursor: zoom-in;
-      background: var(--secondary-background-color);
-    }
+    /* ── PRINTING BOTTOM ──────────────────────────────────── */
+    .print-info-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px 0; }
+    .thumb-wrap { width: 54px; height: 54px; border-radius: 8px; overflow: hidden; flex-shrink: 0; cursor: zoom-in; background: var(--secondary-background-color); }
     .thumb-sm { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .thumb-sm-ph {
-      width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
-    }
+    .thumb-sm-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
     .thumb-sm-ph ha-icon { --mdc-icon-size: 26px; color: var(--secondary-text-color); }
-    .job-info  { flex: 1; min-width: 0; }
-    .job-name  { font-size: .9rem; font-weight: 700; white-space: nowrap;
-                 overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-    .time-row  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 5px; }
-    .t-label   { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
-                 color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
-    .t-value   { font-size: .82rem; font-weight: 600; margin-top: 1px; white-space: nowrap; }
+    .job-info { flex: 1; min-width: 0; }
+    .job-name { font-size: .9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+    .time-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 5px; }
+    .t-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
+    .t-value { font-size: .82rem; font-weight: 600; margin-top: 1px; white-space: nowrap; }
     .t-value.remaining { color: #ff6d00; }
-
-    .progress-wrap  { padding: 10px 14px 0; }
-    .progress-track {
-      height: 6px; border-radius: 6px;
-      background: var(--secondary-background-color, rgba(0,0,0,.08)); overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%; border-radius: 6px;
-      background: linear-gradient(90deg, #ff6d00, #ff9800); transition: width .4s ease;
-    }
-
-    .print-sensors  { padding: 10px 14px 14px; }
-    .sensor-grid-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  `;
+    .progress-wrap { padding: 10px 14px 0; }
+    .progress-track { height: 6px; border-radius: 6px; background: var(--secondary-background-color, rgba(0,0,0,.08)); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg,#ff6d00,#ff9800); transition: width .4s ease; }
+    .print-sensors { padding: 10px 14px 14px; }
+    .sensor-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    `;
   }
 }
 
@@ -908,7 +662,7 @@ if (!customElements.get("printer-card-v2")) {
 }
 
 window.customCards = window.customCards || [];
-if (!window.customCards.some(card => card.type === "printer-card-v2")) {
+if (!window.customCards.some(c => c.type === "printer-card-v2")) {
   window.customCards.push({
     type: "printer-card-v2",
     name: "3D Printer Card V2",
