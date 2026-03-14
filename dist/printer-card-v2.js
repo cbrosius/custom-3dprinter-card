@@ -154,12 +154,27 @@ class PrinterCardV2 extends HTMLElement {
   // ── Image resolution helper ─────────────────────────────
   _getPrinterImage() {
     const img = this._config.printer_image;
-    if (img && img.media_content_id) {
-      return img.media_content_id;
+    if (!img) return null;
+
+    const id = img.media_content_id || img;
+    if (!id) return null;
+
+    // Already a usable URL (http/https or /local/)
+    if (id.startsWith("http") || id.startsWith("/local/")) return id;
+
+    // Convert media-source://media_source/local/foo.jpg → /local/foo.jpg
+    if (id.startsWith("media-source://media_source/local/")) {
+      return id.replace("media-source://media_source/local/", "/local/");
     }
+
+    // Convert media-source://media_source/media/foo.jpg → /media/local/foo.jpg
+    if (id.startsWith("media-source://media_source/")) {
+      return id.replace("media-source://media_source/", "/media/local/");
+    }
+
     return null;
   }
-
+  
   // ── Status detection — reads raw sensor value from HA ────
   _status() {
     if (!this._config.printer_status_entity || !this._hass) return "unavailable";
