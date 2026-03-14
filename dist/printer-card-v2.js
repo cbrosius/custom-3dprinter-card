@@ -309,16 +309,21 @@ class PrinterCardV2 extends HTMLElement {
     const realStatus = (statusEntity && this._hass?.states[statusEntity]) ? this._hass.states[statusEntity].state : (status === "printing" ? "Printing" : "Idle");
     const text = document.createElement("div");
     text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${realStatus}</div>`;
-    if (status !== "printing") {
-      const powerWrap = document.createElement("div");
-      powerWrap.className = "power-wrap";
-      powerWrap.innerHTML = `<span class="power-label">POWER</span>`;
-      powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-on", "power-on"));
-      wrap.appendChild(text);
-      wrap.appendChild(powerWrap);
-    } else {
-      wrap.appendChild(text);
-    }
+     if (status !== "printing") {
+       const powerWrap = document.createElement("div");
+       powerWrap.className = "power-wrap";
+       if (status === "idle") {
+         powerWrap.innerHTML = `<span class="power-label">POWER OFF -></span>`;
+         powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-off", "power-off"));
+       } else {
+         powerWrap.innerHTML = `<span class="power-label">POWER ON -></span>`;
+         powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-on", "power-on"));
+       }
+       wrap.appendChild(text);
+       wrap.appendChild(powerWrap);
+     } else {
+       wrap.appendChild(text);
+     }
     return wrap;
   }
 
@@ -693,7 +698,8 @@ class PrinterCardV2 extends HTMLElement {
 
     /* ── BUTTONS ──────────────────────────────────────────── */
     .cam-action-btn { --mdc-icon-button-size: 40px; --mdc-icon-size: 20px; border-radius: 50%; }
-    .btn-power-on { background: rgba(76,175,80,.15); color: #4caf50; }
+     .btn-power-on { background: rgba(76,175,80,.15); color: #4caf50; }
+     .btn-power-off { background: rgba(244,67,54,.15); color: #f44336; }
 
     /* ── TILES ────────────────────────────────────────────── */
     .tile-wrap { border-radius: 12px; overflow: hidden; position: relative; }
