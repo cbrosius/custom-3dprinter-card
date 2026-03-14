@@ -262,7 +262,9 @@ class PrinterCardV2 extends HTMLElement {
       wrap.appendChild(icon);
     }
     const text = document.createElement("div");
-    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">Offline</div>`;
+    const statusEntity = this._config.printer_status_entity;
+    const realStatus = (statusEntity && this._hass?.states[statusEntity]) ? this._hass.states[statusEntity].state : "unavailable";
+    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${realStatus}</div>`;
     const powerWrap = document.createElement("div");
     powerWrap.className = "power-wrap";
     powerWrap.innerHTML = `<span class="power-label">POWER</span>`;
@@ -287,9 +289,10 @@ class PrinterCardV2 extends HTMLElement {
       icon.setAttribute("icon", "mdi:printer-3d"); icon.className = "unavail-icon-el";
       wrap.appendChild(icon);
     }
-    const statusText = status === "printing" ? "Printing..." : "Idle";
+    const statusEntity = this._config.printer_status_entity;
+    const realStatus = (statusEntity && this._hass?.states[statusEntity]) ? this._hass.states[statusEntity].state : (status === "printing" ? "Printing" : "Idle");
     const text = document.createElement("div");
-    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${statusText}</div>`;
+    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${realStatus}</div>`;
     const powerWrap = document.createElement("div");
     powerWrap.className = "power-wrap";
     powerWrap.innerHTML = `<span class="power-label">POWER</span>`;
