@@ -54,7 +54,10 @@ class PrinterCardV2Editor extends HTMLElement {
         label: "Drucker-Bild (Medienauswahl)",
         selector: {
           media: {
-            accept: ["image/*"]
+            accept: ["image/*"],
+            clearable: true,
+            image_upload: true,
+            hide_content_type: true,
           }
         }
       },
