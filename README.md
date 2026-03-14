@@ -2,7 +2,7 @@
 
 Eine Home Assistant Custom Card für 3D-Drucker mit Mushroom Design.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Home Assistant](https://img.shields.io/badge/home%20assistant-2023.4.0%2B-blue)
 
@@ -85,7 +85,18 @@ current_layer_entity: sensor.current_layer
 total_layers_entity: sensor.total_layers
 thumbnail_entity: sensor.print_thumbnail
 job_name_entity: sensor.job_name
+
+# Drucker-Bild Option 1: Vorgefertigte Bilder
 printer_image: "A1Mini.jpg"
+
+# Drucker-Bild Option 2: Eigens hochgeladenes Bild (wähle "Custom Upload" im Dropdown)
+# custom_image: "/hacsfiles/custom-printer-card/mein-bild.jpg"
+
+# Drucker-Bild Option 3: Medienauswahl (HA 2025.10+)
+# printer_image2:
+#   media_content_id: "media-source://media_source/local/mein-bild.jpg"
+#   media_content_type: image/jpeg
+
 show_printer_image_when_off: true
 ```
 
@@ -106,12 +117,14 @@ show_printer_image_when_off: true
 | `total_layers_entity` | string | Gesamtlayers Sensor | - |
 | `thumbnail_entity` | string | Modell-Vorschaubild Sensor | - |
 | `job_name_entity` | string | Dateiname / Job-Name Sensor | - |
-| `printer_image` | string | Drucker-Bild (Dropdown oder Custom Upload) | "" |
+| `printer_image` | string | Drucker-Bild (Dropdown): "PrusaCoreOne.jpg", "PrusaMini.jpg", "A1Mini.jpg", "Kossel.jpg", "PrusaMK3.jpg", "custom" | "" |
+| `custom_image` | string | Benutzerdefiniertes Bild (wird automatisch hinzugefügt wenn printer_image="custom") | - |
+| `printer_image2` | object | Drucker-Bild via Medienauswahl (media_content_id) | - |
 | `show_printer_image_when_off` | boolean | Zeige Drucker-Bild wenn ausgeschaltet | false |
 
 ## Voraussetzungen
 
-- Home Assistant 2023.4.0 oder höher
+- Home Assistant 2023.4.0 oder höher (2025.10+ für Medienauswahl bei `printer_image2`)
 - Drucker-Integration in Home Assistant eingerichtet (z.B. PrusaLink, OctoPrint, Bambu Lab, etc.)
 - Optional: Eine Kamera, die den Drucker überwacht
 - Optional: Ein Schalter zur Steuerung der Spannungsversorgung

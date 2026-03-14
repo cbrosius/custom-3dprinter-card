@@ -50,6 +50,15 @@ class PrinterCardV2Editor extends HTMLElement {
         }
       },
       {
+        name: "printer_image2",
+        label: "Drucker-Bild (Medienauswahl)",
+        selector: {
+          media: {
+            accept: ["image/*"]
+          }
+        }
+      },
+      {
         name: "show_printer_image_when_off",
         label: "Zeige Drucker-Bild, wenn der Drucker aus ist",
         selector: { boolean: {} }
@@ -175,15 +184,23 @@ class PrinterCardV2 extends HTMLElement {
     const model = this._config.printer_image || "";
 
     if (model === "custom") {
-      // Return the user's uploaded image, with fallback
       return this._config.custom_image || "/hacsfiles/custom-printer-card/default-printer.png";
     }
 
     if (model) {
-      // Return bundled image based on dropdown selection
       const scriptPath = new URL(import.meta.url).pathname;
       const basePath = scriptPath.substring(0, scriptPath.lastIndexOf('/'));
       return `${basePath}/images/${model}`;
+    }
+
+    if (this._config.printer_image2) {
+      const img2 = this._config.printer_image2;
+      if (typeof img2 === "string") {
+        return img2;
+      }
+      if (img2 && img2.media_content_id) {
+        return img2.media_content_id;
+      }
     }
 
     return null;
