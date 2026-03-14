@@ -43,11 +43,6 @@ class PrinterCardV2Editor extends HTMLElement {
       { name: "eta_entity", label: "Fertigstellung (ETA) Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "thumbnail_entity", label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
       { name: "job_name_entity", label: "Dateiname / Job-Name Sensor", selector: { entity: { domain: "sensor" } } },
-      {
-        name: "show_printer_image_when_off",
-        label: "Zeige Drucker-Bild, wenn der Drucker aus ist",
-        selector: { boolean: {} }
-      },
     ];
   }
 
@@ -158,13 +153,13 @@ class PrinterCardV2 extends HTMLElement {
 
   // ── Image resolution helper ─────────────────────────────
   _getPrinterImage() {
-    if (this._config.printer_image2) {
-      const img2 = this._config.printer_image2;
-      if (typeof img2 === "string") {
-        return img2;
+    if (this._config.printer_image) {
+      const img = this._config.printer_image;
+      if (typeof img === "string") {
+        return img;
       }
-      if (img2 && img2.media_content_id) {
-        return img2.media_content_id;
+      if (img && img.media_content_id) {
+        return img.media_content_id;
       }
     }
 
@@ -314,7 +309,7 @@ class PrinterCardV2 extends HTMLElement {
 
     // Show printer image if configured
     const imgUrl = this._getPrinterImage();
-    if (imgUrl && this._config.show_printer_image_when_off) {
+    if (imgUrl) {
       const imgWrap = document.createElement("div");
       imgWrap.className = "unavail-printer-image";
 

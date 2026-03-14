@@ -91,13 +91,6 @@ printer_image: "A1Mini.jpg"
 
 # Drucker-Bild Option 2: Eigens hochgeladenes Bild (wähle "Custom Upload" im Dropdown)
 # custom_image: "/hacsfiles/custom-printer-card/mein-bild.jpg"
-
-# Drucker-Bild Option 3: Medienauswahl (HA 2025.10+)
-# printer_image2:
-#   media_content_id: "media-source://media_source/local/mein-bild.jpg"
-#   media_content_type: image/jpeg
-
-show_printer_image_when_off: true
 ```
 
 ### Konfigurationsoptionen
@@ -105,6 +98,7 @@ show_printer_image_when_off: true
 | Option | Typ | Beschreibung | Standard |
 |--------|-----|--------------|----------|
 | `name` | string | Anzeigename des Druckers | "3D Drucker" |
+| `printer_image` | string/object | Drucker-Bild | "" |
 | `printer_status_entity` | string | Status-Sensor des Druckers | - |
 | `camera_entity` | string | Kamera-Entität | - |
 | `power_switch_entity` | string | Power-Schalter Entität | - |
@@ -117,10 +111,6 @@ show_printer_image_when_off: true
 | `total_layers_entity` | string | Gesamtlayers Sensor | - |
 | `thumbnail_entity` | string | Modell-Vorschaubild Sensor | - |
 | `job_name_entity` | string | Dateiname / Job-Name Sensor | - |
-| `printer_image` | string | Drucker-Bild (Dropdown): "PrusaCoreOne.jpg", "PrusaMini.jpg", "A1Mini.jpg", "Kossel.jpg", "PrusaMK3.jpg", "custom" | "" |
-| `custom_image` | string | Benutzerdefiniertes Bild (wird automatisch hinzugefügt wenn printer_image="custom") | - |
-| `printer_image2` | object | Drucker-Bild via Medienauswahl (media_content_id) | - |
-| `show_printer_image_when_off` | boolean | Zeige Drucker-Bild wenn ausgeschaltet | false |
 
 ## Voraussetzungen
 
