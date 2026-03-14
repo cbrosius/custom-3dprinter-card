@@ -233,12 +233,24 @@ class PrinterCardV2 extends HTMLElement {
       card.appendChild(this._buildUnavail());
     } else if (status === "idle") {
       card.appendChild(this._buildHeader(status));
-      if (this._config.camera_entity) card.appendChild(this._buildCameraArea());
+      if (this._config.camera_entity) {
+        card.appendChild(this._buildCameraArea());
+      } else {
+        const divider = document.createElement("div");
+        divider.className = "no-cam-divider";
+        card.appendChild(divider);
+      }
       const bottom = this._buildIdleBottom();
       if (bottom) card.appendChild(bottom);
     } else {
       card.appendChild(this._buildHeader(status));
-      if (this._config.camera_entity) card.appendChild(this._buildCameraArea());
+      if (this._config.camera_entity) {
+        card.appendChild(this._buildCameraArea());
+      } else {
+        const divider = document.createElement("div");
+        divider.className = "no-cam-divider";
+        card.appendChild(divider);
+      }
       const bottom = this._buildPrintingBottom();
       if (bottom) card.appendChild(bottom);
     }
@@ -580,6 +592,7 @@ class PrinterCardV2 extends HTMLElement {
       line-height: 0; margin: 0; padding: 0; cursor: zoom-in;
     }
     .view-unavail + .camera-area { margin-top: 2px; }
+    .no-cam-divider { height: 1px; background: var(--divider-color, rgba(255,255,255,0.1)); }
 
     /* Shared sizing for <img> (MJPEG/snapshot) and <video> (HLS) */
     .camera-img {
