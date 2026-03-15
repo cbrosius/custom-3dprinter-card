@@ -167,7 +167,6 @@ class PrinterCardV2 extends HTMLElement {
     const strip = this.shadowRoot.querySelector(".header-sensor-strip");
     if (!strip) return;
     const items = [
-      { id: this._config.power_sensor_entity },
       { id: this._config.bed_temp_entity },
       { id: this._config.nozzle_temp_entity },
     ];
