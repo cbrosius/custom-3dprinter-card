@@ -151,6 +151,22 @@ class PrinterCardV2 extends HTMLElement {
       console.log("[PrinterCardV2] Now watching:", watch.join(", "), "— toggle edit/preview mode now");
     };
     console.log("[PrinterCardV2] Debug ready — run window.__pcv2debug() in console");
+
+    // Also log the DOM ancestry every time the card connects
+    const origConnected = this.connectedCallback?.bind(this);
+    const card = this;
+    window.__pcv2ancestry = () => {
+      let el = card;
+      const chain = [];
+      while (el) {
+        chain.push(el.tagName || el.nodeName);
+        el = el.parentElement || (el.getRootNode && el.getRootNode() !== el ? el.getRootNode().host : null);
+      }
+      console.log("[PrinterCardV2] DOM ancestry:", chain.join(" → "));
+      console.log("[PrinterCardV2] location.href:", location.href);
+      console.log("[PrinterCardV2] window name:", window.name);
+    };
+    console.log("[PrinterCardV2] Run window.__pcv2ancestry() to inspect DOM context");
   }
 
   setConfig(config) {
