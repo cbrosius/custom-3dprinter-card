@@ -921,13 +921,13 @@ class PrinterCardV2 extends HTMLElement {
     /* ── TILES ────────────────────────────────────────────── */
     .tile-wrap { border-radius: 12px; overflow: hidden; position: relative; }
     .tile-blue hui-tile-card {
-      --tile-color: #2196f3; --rgb-tile-color: 33,150,243; --state-color: #2196f3;
-      --ha-card-background: rgba(33,150,243,.08); --ha-card-box-shadow: none;
-      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: #2196f3; margin: 0;
+      --tile-color: ${accent}; --rgb-tile-color: ${accent}; --state-color: ${accent};
+      --ha-card-background: color-mix(in srgb, ${accent} 8%, transparent); --ha-card-box-shadow: none;
+      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: ${accent}; margin: 0;
     }
     .tile-blue hui-tile-card .primary, .tile-blue hui-tile-card ha-tile-info .primary { color: white !important; }
     .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
-    .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
+    .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: ${accent} !important; }
 
     .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
     .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
