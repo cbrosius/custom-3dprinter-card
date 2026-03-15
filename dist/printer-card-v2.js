@@ -88,6 +88,7 @@ class PrinterCardV2 extends HTMLElement {
     this._tiles = {};
     this._streamMode = "mjpeg"; // "mjpeg" | "hls" | "poll"
     this._pollInterval = null;
+    this._installDebug();
   }
 
   static getConfigElement() { return document.createElement("printer-card-v2-editor"); }
@@ -98,7 +99,6 @@ class PrinterCardV2 extends HTMLElement {
   set preview(value) {
     if (this._preview !== value) {
       this._preview = value;
-      console.log("[PrinterCardV2] preview =", value, "| editMode =", this._editMode, "| isPanel =", this.isPanel);
       this._render();
     }
   }
@@ -106,13 +106,51 @@ class PrinterCardV2 extends HTMLElement {
   set editMode(value) {
     if (this._editMode !== value) {
       this._editMode = value;
-      console.log("[PrinterCardV2] editMode =", value, "| preview =", this._preview, "| isPanel =", this.isPanel);
       this._render();
     }
   }
 
   get _showAllStates() {
     return this._preview === true && !this._editMode;
+  }
+
+  // Debug helper — call window.__pcv2debug() in the browser console
+  // to snapshot every own property and attribute on the card element.
+  _installDebug() {
+    if (window.__pcv2debugInstalled) return;
+    window.__pcv2debugInstalled = true;
+    window.__pcv2debug = () => {
+      const el = document.querySelector("printer-card-v2") ||
+        document.querySelector("*")?.shadowRoot?.querySelector("printer-card-v2");
+      if (!el) { console.warn("printer-card-v2 element not found"); return; }
+      const props = {};
+      let proto = el;
+      while (proto && proto !== HTMLElement.prototype) {
+        Object.getOwnPropertyNames(proto).forEach(k => {
+          if (!(k in props)) {
+            try { props[k] = el[k]; } catch(e) { props[k] = "(error)"; }
+          }
+        });
+        proto = Object.getPrototypeOf(proto);
+      }
+      console.log("[PrinterCardV2] element props:", props);
+      console.log("[PrinterCardV2] attributes:", [...el.attributes].map(a => a.name + "=" + a.value));
+      // Watch for any property being set on the element
+      const watch = ["preview", "editMode", "isPanel", "lovelace", "_inDialog"];
+      watch.forEach(key => {
+        let val = el[key];
+        Object.defineProperty(el, key, {
+          get() { return val; },
+          set(v) {
+            console.log(`[PrinterCardV2] SET ${key} =`, v);
+            val = v;
+          },
+          configurable: true
+        });
+      });
+      console.log("[PrinterCardV2] Now watching:", watch.join(", "), "— toggle edit/preview mode now");
+    };
+    console.log("[PrinterCardV2] Debug ready — run window.__pcv2debug() in console");
   }
 
   setConfig(config) {
