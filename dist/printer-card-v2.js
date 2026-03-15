@@ -216,9 +216,45 @@ class PrinterCardV2 extends HTMLElement {
     this._updateTimeValues();
     this._updateProgressBar();
     this._updateHeaderSensorStrip();
+    this._updateHeaderStatusLabel();
     this.shadowRoot.querySelectorAll("ha-relative-time").forEach(el => {
       el.hass = this._hass;
     });
+  }
+
+  _updateHeaderStatusLabel() {
+    const subDiv = this.shadowRoot.querySelector(".unavail-sub");
+    if (!subDiv) return;
+    const statusEntity = this._config.printer_status_entity;
+    const realStatus = (statusEntity && this._hass?.states[statusEntity])
+      ? this._hass.states[statusEntity].state
+      : this._lastStatus || "—";
+
+    let displayStatus = realStatus;
+    let powerValueAvailable = false;
+    if (this._config.power_sensor_entity && this._hass?.states[this._config.power_sensor_entity]) {
+      const powerState = this._hass.states[this._config.power_sensor_entity];
+      if (powerState.state !== "unavailable" && powerState.state !== "unknown") {
+        const powerValue = powerState.state;
+        const powerUnit = powerState.attributes?.unit_of_measurement || "W";
+        displayStatus = `${realStatus} (${powerValue}${powerUnit})`;
+        powerValueAvailable = true;
+      }
+    }
+
+    subDiv.textContent = displayStatus;
+
+    if (powerValueAvailable) {
+      if (!subDiv.classList.contains("sub-clickable")) {
+        subDiv.classList.add("sub-clickable");
+        subDiv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._fireMoreInfo(this._config.power_sensor_entity);
+        });
+      }
+    } else {
+      subDiv.classList.remove("sub-clickable");
+    }
   }
 
   _updateHeaderSensorStrip() {
