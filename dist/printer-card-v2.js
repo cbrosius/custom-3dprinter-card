@@ -709,6 +709,7 @@ class PrinterCardV2 extends HTMLElement {
       primary: "Layer",
       secondary,
       icon: "mdi:layers-triple",
+      icon_color: this._accentColorForMushroom(), // pass accent color directly into config
       layout: "horizontal",
       tap_action: { action: "more-info" },
       entity: curId
@@ -783,6 +784,20 @@ class PrinterCardV2 extends HTMLElement {
     const v = this._config.accent_color;
     if (!v) return "#ff6d00";
     if (Array.isArray(v) && v.length === 3) return `rgb(${v[0]},${v[1]},${v[2]})`;
+    return v;
+  }
+
+  // Returns a mushroom-compatible color name or hex string.
+  // Mushroom's icon_color accepts CSS color names, hex values, and some
+  // named HA theme colors. We pass the resolved accent value directly.
+  _accentColorForMushroom() {
+    const v = this._config.accent_color;
+    if (!v) return "deep-orange";
+    // If it's an RGB array, convert to hex so mushroom can consume it
+    if (Array.isArray(v) && v.length === 3) {
+      const toHex = (n) => n.toString(16).padStart(2, "0");
+      return `#${toHex(v[0])}${toHex(v[1])}${toHex(v[2])}`;
+    }
     return v;
   }
 
@@ -901,11 +916,39 @@ class PrinterCardV2 extends HTMLElement {
       --mdc-icon-color: ${accent};
     }
 
-    .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
-    .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
-    .mushroom-layer-tile { --mush-rgb-state-color: ${accent}; }
-    .mushroom-layer-tile [slot="secondary"], .mushroom-layer-tile .secondary { color: ${accent} !important; }
-
+    /* ── MUSHROOM LAYER TILE ──────────────────────────────── */
+    .mushroom-layer-tile {
+      margin: 0;
+      --ha-card-border-radius: 12px;
+      --ha-card-box-shadow: none;
+      --mush-icon-size: 40px;
+      --mush-spacing: 12px;
+      /* Mushroom uses --mush-rgb-state-color for the icon background tint
+         and resolves icon color from the icon_color config option.
+         We also force the CSS custom properties that mushroom exposes: */
+      --mush-icon-color: ${accent};
+      --mush-icon-color-disabled: ${accent};
+      --mush-state-icon-color: ${accent};
+      --mush-rgb-state-color: ${accent};
+    }
+    .mushroom-layer-tile ha-card {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    /* Target mushroom's internal icon element through the shadow DOM
+       using ::part() where supported, and fallback slotted selectors */
+    .mushroom-layer-tile mushroom-shape-icon,
+    .mushroom-layer-tile mushroom-shape-icon ha-icon,
+    .mushroom-layer-tile mushroom-shape-icon ha-state-icon {
+      --icon-color: ${accent} !important;
+      --shape-color: color-mix(in srgb, ${accent} 15%, transparent) !important;
+      color: ${accent} !important;
+    }
+    .mushroom-layer-tile [slot="secondary"],
+    .mushroom-layer-tile .secondary {
+      color: ${accent} !important;
+      
     /* ── IDLE BOTTOM ──────────────────────────────────────── */
     .idle-bottom { padding: 12px 14px 14px; }
     .temp-row { display: grid; gap: 8px; }
