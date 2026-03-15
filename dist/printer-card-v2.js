@@ -93,8 +93,6 @@ class PrinterCardV2 extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._lastStatus = null;
-    this._tiles = {};
-    this._streamMode = "mjpeg"; // "mjpeg" | "hls" | "poll"
     this._pollInterval = null;
   }
 
@@ -139,7 +137,6 @@ class PrinterCardV2 extends HTMLElement {
   setConfig(config) {
     this._config = config;
     this._lastStatus = null;
-    this._tiles = {};
     this._stopPoll();
     this._render();
   }
@@ -537,18 +534,6 @@ class PrinterCardV2 extends HTMLElement {
       ? this._hass.states[statusEntity].state
       : (status === "printing" ? "Printing" : "Idle");
 
-    let displayStatus = realStatus;
-    let powerValueAvailable = false;
-    if (this._config.power_sensor_entity && this._hass?.states[this._config.power_sensor_entity]) {
-      const powerState = this._hass.states[this._config.power_sensor_entity];
-      if (powerState.state !== "unavailable" && powerState.state !== "unknown") {
-        const powerValue = powerState.state;
-        const powerUnit = powerState.attributes?.unit_of_measurement || "W";
-        displayStatus = `${realStatus} (${powerValue}${powerUnit})`;
-        powerValueAvailable = true;
-      }
-    }
-
     const text = document.createElement("div");
 
     const nameDiv = document.createElement("div");
@@ -558,16 +543,7 @@ class PrinterCardV2 extends HTMLElement {
 
     const subDiv = document.createElement("div");
     subDiv.className = "unavail-sub";
-    subDiv.textContent = displayStatus;
-
-    // If power data is shown in the label, make it clickable → more-info dialog
-    if (powerValueAvailable) {
-      subDiv.classList.add("sub-clickable");
-      subDiv.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this._fireMoreInfo(this._config.power_sensor_entity);
-      });
-    }
+    subDiv.textContent = realStatus;
 
     text.appendChild(subDiv);
     wrap.appendChild(text);
@@ -610,7 +586,6 @@ class PrinterCardV2 extends HTMLElement {
     img.src = mjpegUrl;
 
     wrap.appendChild(img);
-    this._streamMode = "mjpeg";
 
     wrap.addEventListener("click", () => this._showLightbox(mjpegUrl, false), { passive: true });
 
@@ -633,7 +608,6 @@ class PrinterCardV2 extends HTMLElement {
 
     video.onerror = () => {
       video.remove();
-      this._streamMode = "poll";
       const snapUrl = `/api/camera_proxy/${camId}${tokenParam}&t=${Date.now()}`;
       const img = document.createElement("img");
       img.className = "camera-img"; img.alt = "Kamera"; img.src = snapUrl;
@@ -647,7 +621,6 @@ class PrinterCardV2 extends HTMLElement {
 
     video.src = hlsUrl;
     wrap.insertBefore(video, wrap.querySelector(".live-badge"));
-    this._streamMode = "hls";
     wrap.addEventListener("click", () => this._showLightbox(hlsUrl, true), { passive: true });
   }
 
@@ -770,7 +743,6 @@ class PrinterCardV2 extends HTMLElement {
     const tile = document.createElement("hui-tile-card");
     tile.setConfig({ type: "tile", entity: entityId, name: cleanName, icon: fallbackIcon,
       color, show_entity_picture: false, tap_action: { action: "more-info" } });
-    this._tiles[entityId] = tile;
     wrapper.appendChild(tile);
     return wrapper;
   }
@@ -808,7 +780,6 @@ class PrinterCardV2 extends HTMLElement {
 
   _buildTimeCol(label, entityId, accent, fallbackValue) {
     const wrap = document.createElement("div");
-    // FIX: explicit alignment via text-align and justify-self for grid placement
     wrap.style.textAlign = accent ? "right" : "left";
     wrap.style.justifySelf = accent ? "end" : "start";
     const l = document.createElement("div"); l.className = "t-label"; l.textContent = label;
@@ -823,7 +794,6 @@ class PrinterCardV2 extends HTMLElement {
         const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
         const valueWrap = document.createElement("div");
-        // FIX: always apply accent color; remaining only controls right-align style
         valueWrap.className = "t-value t-value-compound accent";
         if (accent) valueWrap.classList.add("remaining");
         valueWrap.classList.add(label === "START-TIME" ? "t-compound-elapsed" : "t-compound-eta");
@@ -848,7 +818,6 @@ class PrinterCardV2 extends HTMLElement {
     }
 
     // Plain text fallback when entity unavailable or unknown
-    // FIX: always apply accent color class
     const v = document.createElement("div");
     v.className = "t-value accent" + (accent ? " remaining" : "");
 
@@ -1014,14 +983,6 @@ class PrinterCardV2 extends HTMLElement {
 
     /* ── TILES ────────────────────────────────────────────── */
     .tile-wrap { border-radius: 12px; overflow: hidden; position: relative; }
-    .tile-blue hui-tile-card {
-      --tile-color: ${accent}; --rgb-tile-color: ${accent}; --state-color: ${accent};
-      --ha-card-background: color-mix(in srgb, ${accent} 8%, transparent); --ha-card-box-shadow: none;
-      --ha-card-border-radius: 12px; --primary-text-color: white; --secondary-text-color: ${accent}; margin: 0;
-    }
-    .tile-blue hui-tile-card .primary, .tile-blue hui-tile-card ha-tile-info .primary { color: ${accent}; }
-    .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
-    .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: ${accent} !important; }
 
     /* ── TILE ICON ACCENT COLOR ───────────────────────────── */
     .tile-wrap hui-tile-card {
@@ -1056,12 +1017,9 @@ class PrinterCardV2 extends HTMLElement {
     .time-row { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-top: 5px; }
     .t-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
     .t-value { font-size: .82rem; font-weight: 600; margin-top: 1px; white-space: nowrap; }
-    /* FIX: both START-TIME and ETA values use accent color */
     .t-value.accent { color: ${accent}; }
-    .t-value.remaining { color: ${accent}; }
     .t-value-compound { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0; white-space: normal; }
     .t-value-compound.accent { color: ${accent}; }
-    .t-value-compound.remaining { color: ${accent}; }
     .t-time { font-weight: 700; }
     .ha-relative-time.t-rel-inline { display: inline; font-size: inherit; font-weight: inherit; color: ${accent}; }
     .progress-wrap { padding: 10px 14px 14px; }
