@@ -849,10 +849,10 @@ class PrinterCardV2 extends HTMLElement {
     }
     .unavail-printer-image img { width: 100%; height: 100%; object-fit: contain; }
     .unavail-name { font-size: .95rem; font-weight: 600; }
-    .unavail-sub  { font-size: .78rem; color: var(--secondary-text-color); margin-top: 1px; }
+    .unavail-sub  { font-size: .78rem; color: ${accent}; margin-top: 1px; }
     .power-wrap   { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     .power-label  { font-size: .72rem; font-weight: 600; letter-spacing: .06em;
-                    text-transform: uppercase; color: var(--secondary-text-color); }
+                    text-transform: uppercase; color: ${accent}; }
 
     /* ── HEADER SENSOR STRIP ─────────────────────────────── */
     .header-sensor-strip {
@@ -952,7 +952,7 @@ class PrinterCardV2 extends HTMLElement {
     .t-value.remaining { color: ${accent}; }
     .progress-wrap { padding: 10px 14px 14px; }
     .progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
-    .progress-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--secondary-text-color); }
+    .progress-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: ${accent}; }
     .progress-pct { font-size: .82rem; font-weight: 700; color: ${accent}; }
     .progress-track { height: 6px; border-radius: 6px; background: var(--secondary-background-color, rgba(0,0,0,.08)); overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 6px; background: ${accent}; transition: width .4s ease; }
