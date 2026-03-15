@@ -284,11 +284,11 @@ class PrinterCardV2 extends HTMLElement {
       img.src = src;
       lb.appendChild(img);
     }
-    lb.onclick = () => {
+    lb.addEventListener("click", () => {
       const v = lb.querySelector("video");
       if (v) v.src = "";
       lb.classList.remove("active");
-    };
+    }, { passive: true });
     lb.classList.add("active");
   }
 
@@ -547,7 +547,7 @@ class PrinterCardV2 extends HTMLElement {
     this._streamMode = "mjpeg";
 
     // MJPEG stream is displayable in an <img> — open the live stream, not a snapshot
-    wrap.onclick = () => this._showLightbox(mjpegUrl, false);
+    wrap.addEventListener("click", () => this._showLightbox(mjpegUrl, false), { passive: true });
 
     const live = document.createElement("div");
     live.className = "live-badge";
@@ -574,17 +574,17 @@ class PrinterCardV2 extends HTMLElement {
       img.className = "camera-img"; img.alt = "Kamera"; img.src = snapUrl;
       wrap.insertBefore(img, wrap.querySelector(".live-badge"));
       // In poll mode open a fresh snapshot in the lightbox
-      wrap.onclick = () => {
+      wrap.addEventListener("click", () => {
         const freshSnap = `/api/camera_proxy/${camId}${tokenParam}&t=${Date.now()}`;
         this._showLightbox(freshSnap, false);
-      };
+      }, { passive: true });
       this._startPoll();
     };
 
     video.src = hlsUrl;
     wrap.insertBefore(video, wrap.querySelector(".live-badge"));
     this._streamMode = "hls";
-    wrap.onclick = () => this._showLightbox(hlsUrl, true);
+    wrap.addEventListener("click", () => this._showLightbox(hlsUrl, true), { passive: true });
   }
 
   _cameraPlaceholder() {
@@ -631,7 +631,7 @@ class PrinterCardV2 extends HTMLElement {
       const img = document.createElement("img");
       img.className = "thumb-sm"; img.src = thumbUrl; img.alt = "Modell";
       thumbWrap.appendChild(img);
-      thumbWrap.onclick = () => this._showLightbox(thumbUrl, false);
+      thumbWrap.addEventListener("click", () => this._showLightbox(thumbUrl, false), { passive: true });
     } else {
       const ph = document.createElement("div");
       ph.className = "thumb-sm-ph";
