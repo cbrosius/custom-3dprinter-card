@@ -32,7 +32,7 @@ class PrinterCardV2Editor extends HTMLElement {
           { name: "nozzle_temp_entity", label: "Nozzle-Temperatur Sensor", selector: { entity: { domain: "sensor" } } },
           { name: "current_layer_entity", label: "Aktueller Layer Sensor", selector: { entity: { domain: "sensor" } } },
           { name: "total_layers_entity", label: "Gesamt-Layer Sensor", selector: { entity: { domain: "sensor" } } },
-          { name: "print_time_entity", label: "Bisherige Druckzeit Sensor", selector: { entity: { domain: "sensor" } } },
+          { name: "print_start_time", label: "Druckstart-Zeit Sensor", selector: { entity: { domain: "sensor" } } },
           { name: "print_time_left_entity", label: "Restlaufzeit Sensor", selector: { entity: { domain: "sensor" } } },
           { name: "eta_entity", label: "Fertigstellung (ETA) Sensor", selector: { entity: { domain: "sensor" } } },
         ]
@@ -253,17 +253,44 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   _updateTimeValues() {
-    const els = this.shadowRoot.querySelectorAll(".t-value");
-    if (els.length < 2) return;
-    const read = (id) => {
-      if (!id || !this._hass?.states[id]) return "—";
-      const s = this._hass.states[id].state;
-      const u = this._hass.states[id].attributes?.unit_of_measurement || "";
-      return (s !== "unavailable" && s !== "unknown") ? `${s} ${u}`.trim() : "—";
-    };
-    els[0].textContent = read(this._config.print_time_entity);
-    els[1].textContent = read(this._config.print_time_left_entity);
-    if (els.length >= 3) els[2].textContent = read(this._config.eta_entity);
+    // Update REMAINING column (plain text)
+    const remainingEl = this.shadowRoot.querySelector(".t-value-remaining");
+    if (remainingEl) {
+      const id = this._config.print_time_left_entity;
+      if (id && this._hass?.states[id]) {
+        const s = this._hass.states[id].state;
+        const u = this._hass.states[id].attributes?.unit_of_measurement || "";
+        remainingEl.textContent = (s !== "unavailable" && s !== "unknown") ? `${s} ${u}`.trim() : "—";
+      } else {
+        remainingEl.textContent = "—";
+      }
+    }
+
+    // Update ELAPSED ha-relative-time (update datetime in case state changed)
+    const elapsedRel = this.shadowRoot.querySelector(".t-relative-elapsed");
+    if (elapsedRel) {
+      const id = this._config.print_start_time;
+      if (id && this._hass?.states[id]) {
+        const state = this._hass.states[id].state;
+        if (state && state !== "unavailable" && state !== "unknown") {
+          elapsedRel.datetime = new Date(state);
+          elapsedRel.hass = this._hass;
+        }
+      }
+    }
+
+    // Update ETA ha-relative-time
+    const etaRel = this.shadowRoot.querySelector(".t-relative-eta");
+    if (etaRel) {
+      const id = this._config.eta_entity;
+      if (id && this._hass?.states[id]) {
+        const state = this._hass.states[id].state;
+        if (state && state !== "unavailable" && state !== "unknown") {
+          etaRel.datetime = new Date(state);
+          etaRel.hass = this._hass;
+        }
+      }
+    }
   }
 
   _updateProgressBar() {
@@ -673,13 +700,12 @@ class PrinterCardV2 extends HTMLElement {
 
     const timeRow = document.createElement("div");
     timeRow.className = "time-row";
-    const elapsedId = this._config.print_time_entity;
     if (this._showAllStates) {
-      timeRow.appendChild(this._buildTimeCol("ELAPSED", null, false, "1h 23m"));
+      timeRow.appendChild(this._buildTimeCol("ELAPSED", null, false, "2 hours ago"));
       timeRow.appendChild(this._buildTimeCol("REMAINING", null, true, "47m"));
-      timeRow.appendChild(this._buildTimeCol("ETA", null, true, "15:42"));
+      timeRow.appendChild(this._buildTimeCol("ETA", null, true, "in 47 minutes"));
     } else {
-      timeRow.appendChild(this._buildTimeCol("ELAPSED", elapsedId, false));
+      timeRow.appendChild(this._buildTimeCol("ELAPSED", this._config.print_start_time, false));
       timeRow.appendChild(this._buildTimeCol("REMAINING", this._config.print_time_left_entity, true));
       timeRow.appendChild(this._buildTimeCol("ETA", this._config.eta_entity, true));
     }
@@ -717,7 +743,7 @@ class PrinterCardV2 extends HTMLElement {
       show("show_tile_bed")       ? this._buildTile(this._config.bed_temp_entity,         "mdi:radiator") : null,
       show("show_tile_nozzle")    ? this._buildTile(this._config.nozzle_temp_entity,      "mdi:printer-3d-nozzle-heat") : null,
       show("show_tile_power")     ? this._buildTile(this._config.power_sensor_entity,     "mdi:lightning-bolt") : null,
-      show("show_tile_elapsed")   ? this._buildTile(this._config.print_time_entity,       "mdi:clock-outline") : null,
+      show("show_tile_elapsed")   ? this._buildTile(this._config.print_start_time,        "mdi:clock-outline") : null,
       show("show_tile_remaining") ? this._buildTile(this._config.print_time_left_entity,  "mdi:clock-end") : null,
       show("show_tile_eta")       ? this._buildTile(this._config.eta_entity,              "mdi:clock-check-outline") : null,
     ].forEach(t => { if (t) grid.appendChild(t); });
@@ -777,15 +803,17 @@ class PrinterCardV2 extends HTMLElement {
     wrap.style.textAlign = accent ? "right" : "left";
     const l = document.createElement("div"); l.className = "t-label"; l.textContent = label;
     wrap.appendChild(l);
-    const v = document.createElement("div");
-    v.className = "t-value" + (accent ? " remaining" : "");
 
-    // Use relative time for ETA
-    if (label === "ETA" && entityId && this._hass?.states[entityId]) {
+    // Use ha-relative-time for both ELAPSED (print_start_time) and ETA
+    const useRelativeTime = (label === "ELAPSED" || label === "ETA");
+
+    if (useRelativeTime && entityId && this._hass?.states[entityId]) {
       const state = this._hass.states[entityId].state;
       if (state && state !== "unavailable" && state !== "unknown") {
         const relTime = document.createElement("ha-relative-time");
         relTime.className = "t-value" + (accent ? " remaining" : "");
+        // Unique class for targeted updates in _updateTimeValues
+        relTime.classList.add(label === "ELAPSED" ? "t-relative-elapsed" : "t-relative-eta");
         relTime.hass = this._hass;
         relTime.datetime = new Date(state);
         relTime.capitalize = true;
@@ -794,7 +822,11 @@ class PrinterCardV2 extends HTMLElement {
       }
     }
 
-    // fallback for all other columns
+    // Plain text fallback for REMAINING and when relative time isn't available
+    const v = document.createElement("div");
+    v.className = "t-value" + (accent ? " remaining" : "");
+    if (label === "REMAINING") v.classList.add("t-value-remaining");
+
     if (entityId && this._hass?.states[entityId]) {
       const state = this._hass.states[entityId].state;
       const unit = this._hass.states[entityId].attributes?.unit_of_measurement || "";
@@ -1000,6 +1032,8 @@ class PrinterCardV2 extends HTMLElement {
     .t-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
     .t-value { font-size: .82rem; font-weight: 600; margin-top: 1px; white-space: nowrap; }
     .t-value.remaining { color: ${accent}; }
+    .ha-relative-time { font-size: .82rem; font-weight: 600; margin-top: 1px; display: block; }
+    .ha-relative-time.remaining { color: ${accent}; }
     .progress-wrap { padding: 10px 14px 14px; }
     .progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
     .progress-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: ${accent}; }
