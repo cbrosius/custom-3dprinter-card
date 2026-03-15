@@ -468,17 +468,38 @@ class PrinterCardV2 extends HTMLElement {
       : (status === "printing" ? "Printing" : "Idle");
 
     let displayStatus = realStatus;
+    let powerValueAvailable = false;
     if (this._config.power_sensor_entity && this._hass?.states[this._config.power_sensor_entity]) {
       const powerState = this._hass.states[this._config.power_sensor_entity];
       if (powerState.state !== "unavailable" && powerState.state !== "unknown") {
         const powerValue = powerState.state;
         const powerUnit = powerState.attributes?.unit_of_measurement || "W";
         displayStatus = `${realStatus} (${powerValue}${powerUnit})`;
+        powerValueAvailable = true;
       }
     }
 
     const text = document.createElement("div");
-    text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${displayStatus}</div>`;
+
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "unavail-name";
+    nameDiv.textContent = this._config.name || "3D-Drucker";
+    text.appendChild(nameDiv);
+
+    const subDiv = document.createElement("div");
+    subDiv.className = "unavail-sub";
+    subDiv.textContent = displayStatus;
+
+    // If power data is shown in the label, make it clickable → more-info dialog
+    if (powerValueAvailable) {
+      subDiv.classList.add("sub-clickable");
+      subDiv.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._fireMoreInfo(this._config.power_sensor_entity);
+      });
+    }
+
+    text.appendChild(subDiv);
     wrap.appendChild(text);
 
     if (status === "printing") {
@@ -778,6 +799,15 @@ class PrinterCardV2 extends HTMLElement {
   }
   _svc(domain, service, data) { if (this._hass) this._hass.callService(domain, service, data); }
 
+  _fireMoreInfo(entityId) {
+    const event = new CustomEvent("hass-more-info", {
+      bubbles: true,
+      composed: true,
+      detail: { entityId },
+    });
+    this.dispatchEvent(event);
+  }
+
   getCardSize() { return 4; }
 
   _accentColor() {
@@ -810,6 +840,8 @@ class PrinterCardV2 extends HTMLElement {
     .unavail-printer-image img { width: 100%; height: 100%; object-fit: contain; }
     .unavail-name { font-size: .95rem; font-weight: 600; }
     .unavail-sub  { font-size: .78rem; color: ${accent}; margin-top: 1px; }
+    .unavail-sub.sub-clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+    .unavail-sub.sub-clickable:hover { opacity: 0.75; }
     .power-wrap   { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     .power-label  { font-size: .72rem; font-weight: 600; letter-spacing: .06em;
                     text-transform: uppercase; color: var(--secondary-text-color); }
