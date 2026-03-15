@@ -95,12 +95,25 @@ class PrinterCardV2 extends HTMLElement {
     return { name: "my3D-Printer", printer_status_entity: "", camera_entity: "", power_switch_entity: "", job_name_entity: "" };
   }
 
-  // HA sets this property to true when rendering in the editor preview panel
+  // HA sets preview=true in both dashboard edit mode and the visual editor preview.
+  // HA sets editMode=true only in dashboard edit mode (card grid), NOT inside the
+  // visual editor panel. So _showAllStates = preview && !editMode.
   set preview(value) {
     if (this._preview !== value) {
       this._preview = value;
       this._render();
     }
+  }
+
+  set editMode(value) {
+    if (this._editMode !== value) {
+      this._editMode = value;
+      this._render();
+    }
+  }
+
+  get _showAllStates() {
+    return this._preview === true && !this._editMode;
   }
 
   setConfig(config) {
@@ -273,7 +286,7 @@ class PrinterCardV2 extends HTMLElement {
     lb.className = "lightbox";
     sr.appendChild(lb);
 
-    if (this._preview) {
+    if (this._showAllStates) {
       this._renderPreview(sr);
     } else {
       this._renderNormal(sr);
@@ -614,14 +627,14 @@ class PrinterCardV2 extends HTMLElement {
     const jobName = document.createElement("div");
     jobName.className = "job-name";
     const jobId = this._config.job_name_entity;
-    jobName.textContent = this._preview ? "benchy_v3_final_FINAL.gcode" : ((jobId && this._hass?.states[jobId]) ? (this._hass.states[jobId].state || "—") : "—");
+    jobName.textContent = this._showAllStates ? "benchy_v3_final_FINAL.gcode" : ((jobId && this._hass?.states[jobId]) ? (this._hass.states[jobId].state || "—") : "—");
     jobInfo.appendChild(jobName);
 
     const timeRow = document.createElement("div");
     timeRow.className = "time-row";
     const elapsedId = this._config.print_time_entity;
     const elapsedAvail = elapsedId && this._hass?.states[elapsedId] && !["unavailable", "unknown"].includes(this._hass.states[elapsedId].state);
-    if (this._preview) {
+    if (this._showAllStates) {
       timeRow.appendChild(this._buildTimeCol("ELAPSED", null, false, "1h 23m"));
       timeRow.appendChild(this._buildTimeCol("REMAINING", null, true, "47m"));
       timeRow.appendChild(this._buildTimeCol("ETA", null, true, "15:42"));
@@ -769,7 +782,7 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   _pct() {
-    if (this._preview) return 63; // stub for preview
+    if (this._showAllStates) return 63; // stub for preview
     const id = this._config.print_progress_entity;
     if (!id || !this._hass) return 0;
     return Math.min(parseFloat(this._hass.states[id]?.state) || 0, 100);
