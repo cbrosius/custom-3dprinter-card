@@ -88,7 +88,6 @@ class PrinterCardV2 extends HTMLElement {
     this._tiles = {};
     this._streamMode = "mjpeg"; // "mjpeg" | "hls" | "poll"
     this._pollInterval = null;
-    this._installDebug();
   }
 
   static getConfigElement() { return document.createElement("printer-card-v2-editor"); }
@@ -110,64 +109,20 @@ class PrinterCardV2 extends HTMLElement {
     }
   }
 
+  // Returns true only when rendered inside the visual editor preview pane.
+  // In dashboard edit mode the card is wrapped in HUI-CARD-EDIT-MODE — we walk
+  // up the shadow-piercing host chain to detect that and exclude it.
   get _showAllStates() {
-    return this._preview === true && !this._editMode;
+    let el = this;
+    while (el) {
+      if (el.tagName === "HUI-CARD-EDIT-MODE") return false;
+      el = el.parentElement ||
+           (el.getRootNode && el.getRootNode() !== el ? el.getRootNode().host : null);
+    }
+    // Not inside HUI-CARD-EDIT-MODE — must be the visual editor preview
+    return true;
   }
 
-  // Debug helper — call window.__pcv2debug() in the browser console
-  // to snapshot every own property and attribute on the card element.
-  _installDebug() {
-    if (window.__pcv2debugInstalled) return;
-    window.__pcv2debugInstalled = true;
-    window.__pcv2debug = () => {
-      const el = document.querySelector("printer-card-v2") ||
-        document.querySelector("*")?.shadowRoot?.querySelector("printer-card-v2");
-      if (!el) { console.warn("printer-card-v2 element not found"); return; }
-      const props = {};
-      let proto = el;
-      while (proto && proto !== HTMLElement.prototype) {
-        Object.getOwnPropertyNames(proto).forEach(k => {
-          if (!(k in props)) {
-            try { props[k] = el[k]; } catch(e) { props[k] = "(error)"; }
-          }
-        });
-        proto = Object.getPrototypeOf(proto);
-      }
-      console.log("[PrinterCardV2] element props:", props);
-      console.log("[PrinterCardV2] attributes:", [...el.attributes].map(a => a.name + "=" + a.value));
-      // Watch for any property being set on the element
-      const watch = ["preview", "editMode", "isPanel", "lovelace", "_inDialog"];
-      watch.forEach(key => {
-        let val = el[key];
-        Object.defineProperty(el, key, {
-          get() { return val; },
-          set(v) {
-            console.log(`[PrinterCardV2] SET ${key} =`, v);
-            val = v;
-          },
-          configurable: true
-        });
-      });
-      console.log("[PrinterCardV2] Now watching:", watch.join(", "), "— toggle edit/preview mode now");
-    };
-    console.log("[PrinterCardV2] Debug ready — run window.__pcv2debug() in console");
-
-    // Also log the DOM ancestry every time the card connects
-    const origConnected = this.connectedCallback?.bind(this);
-    const card = this;
-    window.__pcv2ancestry = () => {
-      let el = card;
-      const chain = [];
-      while (el) {
-        chain.push(el.tagName || el.nodeName);
-        el = el.parentElement || (el.getRootNode && el.getRootNode() !== el ? el.getRootNode().host : null);
-      }
-      console.log("[PrinterCardV2] DOM ancestry:", chain.join(" → "));
-      console.log("[PrinterCardV2] location.href:", location.href);
-      console.log("[PrinterCardV2] window name:", window.name);
-    };
-    console.log("[PrinterCardV2] Run window.__pcv2ancestry() to inspect DOM context");
-  }
 
   setConfig(config) {
     this._config = config;
@@ -186,6 +141,11 @@ class PrinterCardV2 extends HTMLElement {
     } else {
       this._propagateHass();
     }
+  }
+
+  connectedCallback() {
+    // Re-render once attached so _showAllStates can walk the real DOM
+    this._render();
   }
 
   disconnectedCallback() { this._stopPoll(); }
