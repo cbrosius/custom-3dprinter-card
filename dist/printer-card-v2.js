@@ -20,7 +20,8 @@ class PrinterCardV2Editor extends HTMLElement {
         name: "printer_image", label: "Drucker-Bild",
         selector: { media: { accept: ["image/*"], clearable: true, image_upload: true, hide_content_type: true } }
       },
-      { name: "accent_color", label: "Akzentfarbe (währendDrucken)", selector: { color_rgb: {} } },
+      // FIX 1: use "text" selector — ha-form does not support color picker natively
+      { name: "accent_color", label: "Akzentfarbe (während Drucken) — CSS-Farbe, z.B. #ff6d00", selector: { text: {} } },
       { name: "camera_entity", label: "Kamera", selector: { entity: { domain: "camera" } } },
       { name: "thumbnail_entity", label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
       { name: "job_name_entity", label: "Dateiname / Job-Name Sensor", selector: { entity: { domain: "sensor" } } },
@@ -163,6 +164,8 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   // ── Live-update header sensor strip values ────────────────
+  // FIX 2: items array must match exactly what _buildHeaderSensorStrip() renders
+  // (bed + nozzle only — power is shown in the subtitle, not in the strip)
   _updateHeaderSensorStrip() {
     const strip = this.shadowRoot.querySelector(".header-sensor-strip");
     if (!strip) return;
@@ -372,8 +375,8 @@ class PrinterCardV2 extends HTMLElement {
     const realStatus = (statusEntity && this._hass?.states[statusEntity])
       ? this._hass.states[statusEntity].state
       : (status === "printing" ? "Printing" : "Idle");
-    
-    // Add power value to status if power sensor exists
+
+    // Power value shown in subtitle only — NOT injected into the sensor strip
     let displayStatus = realStatus;
     if (this._config.power_sensor_entity && this._hass?.states[this._config.power_sensor_entity]) {
       const powerState = this._hass.states[this._config.power_sensor_entity];
@@ -383,13 +386,13 @@ class PrinterCardV2 extends HTMLElement {
         displayStatus = `${realStatus} (${powerValue}${powerUnit})`;
       }
     }
-    
+
     const text = document.createElement("div");
     text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${displayStatus}</div>`;
     wrap.appendChild(text);
 
     if (status === "printing") {
-      // Show live sensor strip on the right during printing
+      // Show BED + NOZ strip on the right during printing
       const strip = this._buildHeaderSensorStrip();
       if (strip) wrap.appendChild(strip);
     } else {
