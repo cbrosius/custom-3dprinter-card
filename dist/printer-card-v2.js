@@ -218,6 +218,9 @@ class PrinterCardV2 extends HTMLElement {
     this._updateTimeValues();
     this._updateProgressBar();
     this._updateHeaderSensorStrip();
+    this.shadowRoot.querySelectorAll("ha-relative-time").forEach(el => {
+      el.hass = this._hass;
+    });
   }
 
   _updateHeaderSensorStrip() {
@@ -776,13 +779,32 @@ class PrinterCardV2 extends HTMLElement {
     wrap.appendChild(l);
     const v = document.createElement("div");
     v.className = "t-value" + (accent ? " remaining" : "");
+
+    // Use relative time for ETA
+    if (label === "ETA" && entityId && this._hass?.states[entityId]) {
+      const state = this._hass.states[entityId].state;
+      if (state && state !== "unavailable" && state !== "unknown") {
+        const relTime = document.createElement("ha-relative-time");
+        relTime.className = "t-value" + (accent ? " remaining" : "");
+        relTime.hass = this._hass;
+        relTime.datetime = new Date(state);
+        relTime.capitalize = true;
+        wrap.appendChild(relTime);
+        return wrap;
+      }
+    }
+
+    // fallback for all other columns
     if (entityId && this._hass?.states[entityId]) {
       const state = this._hass.states[entityId].state;
       const unit = this._hass.states[entityId].attributes?.unit_of_measurement || "";
       v.textContent = (state !== "unavailable" && state !== "unknown") ? `${state} ${unit}`.trim() : "—";
     } else if (fallbackValue !== undefined) {
       v.textContent = fallbackValue;
-    } else { v.textContent = "—"; }
+    } else {
+      v.textContent = "—";
+    }
+
     wrap.appendChild(v);
     return wrap;
   }
