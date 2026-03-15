@@ -772,7 +772,9 @@ class PrinterCardV2 extends HTMLElement {
 
   _buildTimeCol(label, entityId, accent, fallbackValue) {
     const wrap = document.createElement("div");
+    // FIX: explicit alignment via text-align and justify-self for grid placement
     wrap.style.textAlign = accent ? "right" : "left";
+    wrap.style.justifySelf = accent ? "end" : "start";
     const l = document.createElement("div"); l.className = "t-label"; l.textContent = label;
     wrap.appendChild(l);
 
@@ -785,7 +787,9 @@ class PrinterCardV2 extends HTMLElement {
         const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
         const valueWrap = document.createElement("div");
-        valueWrap.className = "t-value t-value-compound accent" + (accent ? " remaining" : "");
+        // FIX: always apply accent color; remaining only controls right-align style
+        valueWrap.className = "t-value t-value-compound accent";
+        if (accent) valueWrap.classList.add("remaining");
         valueWrap.classList.add(label === "START-TIME" ? "t-compound-elapsed" : "t-compound-eta");
 
         const timeSpan = document.createElement("span");
@@ -808,8 +812,9 @@ class PrinterCardV2 extends HTMLElement {
     }
 
     // Plain text fallback when entity unavailable or unknown
+    // FIX: always apply accent color class
     const v = document.createElement("div");
-    v.className = "t-value" + (accent ? " remaining" : "");
+    v.className = "t-value accent" + (accent ? " remaining" : "");
 
     if (entityId && this._hass?.states[entityId]) {
       const state = this._hass.states[entityId].state;
@@ -1015,6 +1020,8 @@ class PrinterCardV2 extends HTMLElement {
     .time-row { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-top: 5px; }
     .t-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--secondary-text-color); font-weight: 600; white-space: nowrap; }
     .t-value { font-size: .82rem; font-weight: 600; margin-top: 1px; white-space: nowrap; }
+    /* FIX: both START-TIME and ETA values use accent color */
+    .t-value.accent { color: ${accent}; }
     .t-value.remaining { color: ${accent}; }
     .t-value-compound { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0; white-space: normal; }
     .t-value-compound.accent { color: ${accent}; }
