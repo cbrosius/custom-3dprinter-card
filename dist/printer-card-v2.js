@@ -15,24 +15,24 @@ class PrinterCardV2Editor extends HTMLElement {
   _schema() {
     return [
       { name: "name", label: "Drucker Name", selector: { text: {} } },
+      { name: "printer_status_entity", label: "Drucker-Status Sensor", selector: { entity: {} } },
       {
         name: "printer_image", label: "Drucker-Bild",
         selector: { media: { accept: ["image/*"], clearable: true, image_upload: true, hide_content_type: true } }
       },
-      { name: "printer_status_entity", label: "Drucker-Status Sensor", selector: { entity: {} } },
       { name: "camera_entity", label: "Kamera", selector: { entity: { domain: "camera" } } },
-      { name: "power_switch_entity", label: "Spannungsversorgungs-Schalter", selector: { entity: { domain: ["switch", "input_boolean"] } } },
-      { name: "power_sensor_entity", label: "Leistungsaufnahme (W) Sensor", selector: { entity: { domain: "sensor" } } },
+      { name: "thumbnail_entity", label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
+      { name: "job_name_entity", label: "Dateiname / Job-Name Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "bed_temp_entity", label: "Druckbett-Temperatur Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "nozzle_temp_entity", label: "Nozzle-Temperatur Sensor", selector: { entity: { domain: "sensor" } } },
+      { name: "current_layer_entity", label: "Aktueller Layer Sensor", selector: { entity: { domain: "sensor" } } },
+      { name: "total_layers_entity", label: "Gesamt-Layer Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "print_progress_entity", label: "Druckfortschritt (%) Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "print_time_entity", label: "Bisherige Druckzeit Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "print_time_left_entity", label: "Restlaufzeit Sensor", selector: { entity: { domain: "sensor" } } },
-      { name: "current_layer_entity", label: "Aktueller Layer Sensor", selector: { entity: { domain: "sensor" } } },
-      { name: "total_layers_entity", label: "Gesamt-Layer Sensor", selector: { entity: { domain: "sensor" } } },
       { name: "eta_entity", label: "Fertigstellung (ETA) Sensor", selector: { entity: { domain: "sensor" } } },
-      { name: "thumbnail_entity", label: "Modell-Vorschaubild (Sensor/Entity)", selector: { entity: {} } },
-      { name: "job_name_entity", label: "Dateiname / Job-Name Sensor", selector: { entity: { domain: "sensor" } } },
+      { name: "power_switch_entity", label: "Spannungsversorgungs-Schalter", selector: { entity: { domain: ["switch", "input_boolean"] } } },
+      { name: "power_sensor_entity", label: "Leistungsaufnahme (W) Sensor", selector: { entity: { domain: "sensor" } } },
     ];
   }
 
@@ -153,7 +153,7 @@ class PrinterCardV2 extends HTMLElement {
   _propagateHass() {
     if (!this.shadowRoot) return;
     this.shadowRoot.querySelectorAll(
-      "hui-tile-card, hui-sensor-card, ha-icon-button, ha-state-label-badge, mushroom-template-card"
+      "hui-tile-card, ha-icon-button, ha-state-label-badge, mushroom-template-card"
     ).forEach(el => { if (el.hass !== this._hass) el.hass = this._hass; });
     this._updateJobName();
     this._updateTimeValues();
@@ -471,9 +471,10 @@ class PrinterCardV2 extends HTMLElement {
     wrap.className = "idle-bottom";
     const tempRow = document.createElement("div");
     tempRow.className = "temp-row";
-    const bedTile = this._buildSensorCard(this._config.bed_temp_entity, "mdi:thermometer", "blue");
-    const nozzleTile = this._buildSensorCard(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat", "orange");
-    const powerTile = this._buildSensorCard(this._config.power_sensor_entity, "mdi:lightning-bolt", "yellow");
+    const bedTile = this._buildTile(this._config.bed_temp_entity, "mdi:radiator");
+    const nozzleTile = this._buildTile(this._config.nozzle_temp_entity, "mdi:printer-3d-nozzle-heat");
+    const powerTile = this._buildTile(this._config.power_sensor_entity, "mdi:lightning-bolt");
+      
     if (bedTile) tempRow.appendChild(bedTile);
     if (nozzleTile) tempRow.appendChild(nozzleTile);
     if (powerTile) tempRow.appendChild(powerTile);
@@ -582,32 +583,6 @@ class PrinterCardV2 extends HTMLElement {
       color, show_entity_picture: false, tap_action: { action: "more-info" } });
     this._tiles[entityId] = tile;
     wrapper.appendChild(tile);
-    return wrapper;
-  }
-
-  // ── hui-sensor-card factory ───────────────────────────────
-  _buildSensorCard(entityId, icon, color) {
-    if (!entityId) return null;
-    const wrapper = document.createElement("div");
-    wrapper.className = `sensor-card-wrap sensor-${color}`;
-    const card = document.createElement("hui-sensor-card");
-    wrapper.appendChild(card);
-    this._tiles[entityId] = card;
-
-    customElements.whenDefined("hui-sensor-card").then(() => {
-      if (typeof card.setConfig === "function") {
-        card.setConfig({
-          type: "sensor",
-          entity: entityId,
-          icon: icon,
-          graph: "line",
-          hours_to_show: 1,
-          tap_action: { action: "more-info" }
-        });
-      }
-      if (this._hass) card.hass = this._hass;
-    });
-
     return wrapper;
   }
 
@@ -800,10 +775,6 @@ class PrinterCardV2 extends HTMLElement {
     .tile-blue hui-tile-card .primary, .tile-blue hui-tile-card ha-tile-info .primary { color: white !important; }
     .tile-blue hui-tile-card .state, .tile-blue hui-tile-card .value,
     .tile-blue hui-tile-card .secondary, .tile-blue hui-tile-card ha-tile-info .secondary { color: #2196f3 !important; }
-
-    /* ── SENSOR CARD ─────────────────────────────────────── */
-    .sensor-card-wrap { border-radius: 12px; overflow: hidden; display: block; }
-    .sensor-blue hui-sensor-card { --card-background: rgba(33,150,243,.08); --icon-color: #2196f3; }
 
     .mushroom-layer-tile { margin: 0; --ha-card-border-radius: 12px; --ha-card-box-shadow: none; --mush-icon-size: 40px; --mush-spacing: 12px; }
     .mushroom-layer-tile ha-card { background: transparent !important; border: none !important; box-shadow: none !important; }
