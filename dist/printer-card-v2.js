@@ -252,17 +252,16 @@ class PrinterCardV2 extends HTMLElement {
     });
   }
 
-  _isPowerSwitchOn(fallbackOn = false) {
+  _isPowerSwitchOn() {
     const id = this._config.power_switch_entity;
-    if (!id || !this._hass?.states[id]) return fallbackOn;
+    if (!id || !this._hass?.states[id]) return false;
     return String(this._hass.states[id].state).toLowerCase() === "on";
   }
 
-  _buildPowerWrap(fallbackOn = false) {
-    const isOn = this._isPowerSwitchOn(fallbackOn);
+  _buildPowerWrap() {
+    const isOn = this._isPowerSwitchOn();
     const powerWrap = document.createElement("div");
     powerWrap.className = "power-wrap";
-    powerWrap.dataset.fallbackOn = fallbackOn ? "true" : "false";
 
     const label = document.createElement("span");
     label.className = "power-label";
@@ -281,8 +280,7 @@ class PrinterCardV2 extends HTMLElement {
   _updatePowerButton() {
     if (!this.shadowRoot) return;
     this.shadowRoot.querySelectorAll(".power-wrap").forEach((wrap) => {
-      const fallbackOn = wrap.dataset.fallbackOn === "true";
-      const isOn = this._isPowerSwitchOn(fallbackOn);
+      const isOn = this._isPowerSwitchOn();
       const label = wrap.querySelector(".power-label");
       if (label) {
         label.textContent = isOn ? "POWER OFF ->" : "POWER ON ->";
@@ -539,7 +537,7 @@ class PrinterCardV2 extends HTMLElement {
     const realStatus = (statusEntity && this._hass?.states[statusEntity]) ? this._hass.states[statusEntity].state : "unavailable";
     text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${realStatus}</div>`;
     wrap.appendChild(text);
-    wrap.appendChild(this._buildPowerWrap(false));
+    wrap.appendChild(this._buildPowerWrap());
     return wrap;
   }
 
@@ -625,7 +623,7 @@ class PrinterCardV2 extends HTMLElement {
       const strip = this._buildHeaderSensorStrip();
       if (strip) wrap.appendChild(strip);
     } else {
-      wrap.appendChild(this._buildPowerWrap(true));
+      wrap.appendChild(this._buildPowerWrap());
     }
 
     return wrap;
