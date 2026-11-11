@@ -143,6 +143,7 @@ class PrinterCardV2 extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    this._migrateHacsResourceUrl();
     const status = this._status();
     const showAll = this._showAllStates;
     if (status !== this._lastStatus || showAll !== this._lastShowAll) {
@@ -151,6 +152,36 @@ class PrinterCardV2 extends HTMLElement {
       this._render();
     } else {
       this._propagateHass();
+    }
+  }
+
+  async _migrateHacsResourceUrl() {
+    if (PrinterCardV2._resourceMigrationDone) return;
+    if (!this._hass?.connection || !this._hass?.user?.is_admin) return;
+    PrinterCardV2._resourceMigrationDone = true;
+    try {
+      const resources = await this._hass.callWS({ type: "lovelace/resources" });
+      if (!Array.isArray(resources)) return;
+      for (const res of resources) {
+        if (
+          typeof res.url === "string" &&
+          res.url.startsWith("/hacsfiles/") &&
+          res.url.includes("printer-card-v2.js")
+        ) {
+          const newUrl = res.url.replace(/^\/hacsfiles\//, "/local/community/");
+          await this._hass.callWS({
+            type: "lovelace/resources/update",
+            resource_id: res.id,
+            res_type: res.type || "module",
+            url: newUrl,
+          });
+          console.info(
+            `[printer-card-v2] Automatically migrated Lovelace resource URL from "${res.url}" to "${newUrl}".`
+          );
+        }
+      }
+    } catch (err) {
+      console.debug("[printer-card-v2] Skipping automatic resource URL migration:", err);
     }
   }
 
@@ -185,7 +216,8 @@ class PrinterCardV2 extends HTMLElement {
     const img = this._config.printer_image;
     if (!img) return null;
     const id = img.media_content_id || img;
-    if (!id) return null;
+    if (!id || typeof id !== "string") return null;
+    if (id.startsWith("/hacsfiles/")) return id.replace(/^\/hacsfiles\//, "/local/community/");
     if (id.startsWith("http") || id.startsWith("/local/") || id.startsWith("/api/")) return id;
     if (id.startsWith("media-source://image_upload/"))
       return `/api/image/serve/${id.replace("media-source://image_upload/", "")}/original`;
@@ -214,8 +246,53 @@ class PrinterCardV2 extends HTMLElement {
     this._updateProgressBar();
     this._updateHeaderSensorStrip();
     this._updateHeaderStatusLabel();
+    this._updatePowerButton();
     this.shadowRoot.querySelectorAll("ha-relative-time").forEach(el => {
       el.hass = this._hass;
+    });
+  }
+
+  _isPowerSwitchOn(fallbackOn = false) {
+    const id = this._config.power_switch_entity;
+    if (!id || !this._hass?.states[id]) return fallbackOn;
+    return String(this._hass.states[id].state).toLowerCase() === "on";
+  }
+
+  _buildPowerWrap(fallbackOn = false) {
+    const isOn = this._isPowerSwitchOn(fallbackOn);
+    const powerWrap = document.createElement("div");
+    powerWrap.className = "power-wrap";
+    powerWrap.dataset.fallbackOn = fallbackOn ? "true" : "false";
+
+    const label = document.createElement("span");
+    label.className = "power-label";
+    label.textContent = isOn ? "POWER OFF ->" : "POWER ON ->";
+    powerWrap.appendChild(label);
+
+    const btn = this._makeIconButton(
+      "mdi:power",
+      isOn ? "btn-power-off" : "btn-power-on",
+      isOn ? "power-off" : "power-on"
+    );
+    powerWrap.appendChild(btn);
+    return powerWrap;
+  }
+
+  _updatePowerButton() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.querySelectorAll(".power-wrap").forEach((wrap) => {
+      const fallbackOn = wrap.dataset.fallbackOn === "true";
+      const isOn = this._isPowerSwitchOn(fallbackOn);
+      const label = wrap.querySelector(".power-label");
+      if (label) {
+        label.textContent = isOn ? "POWER OFF ->" : "POWER ON ->";
+      }
+      const btn = wrap.querySelector(".cam-action-btn");
+      if (btn) {
+        btn.classList.toggle("btn-power-off", isOn);
+        btn.classList.toggle("btn-power-on", !isOn);
+        btn.dataset.action = isOn ? "power-off" : "power-on";
+      }
     });
   }
 
@@ -461,12 +538,8 @@ class PrinterCardV2 extends HTMLElement {
     const statusEntity = this._config.printer_status_entity;
     const realStatus = (statusEntity && this._hass?.states[statusEntity]) ? this._hass.states[statusEntity].state : "unavailable";
     text.innerHTML = `<div class="unavail-name">${this._config.name || "3D-Drucker"}</div><div class="unavail-sub">${realStatus}</div>`;
-    const powerWrap = document.createElement("div");
-    powerWrap.className = "power-wrap";
-    powerWrap.innerHTML = `<span class="power-label">POWER ON -></span>`;
-    powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-on", "power-on"));
     wrap.appendChild(text);
-    wrap.appendChild(powerWrap);
+    wrap.appendChild(this._buildPowerWrap(false));
     return wrap;
   }
 
@@ -552,11 +625,7 @@ class PrinterCardV2 extends HTMLElement {
       const strip = this._buildHeaderSensorStrip();
       if (strip) wrap.appendChild(strip);
     } else {
-      const powerWrap = document.createElement("div");
-      powerWrap.className = "power-wrap";
-      powerWrap.innerHTML = `<span class="power-label">POWER OFF -></span>`;
-      powerWrap.appendChild(this._makeIconButton("mdi:power", "btn-power-off", "power-off"));
-      wrap.appendChild(powerWrap);
+      wrap.appendChild(this._buildPowerWrap(true));
     }
 
     return wrap;
@@ -852,7 +921,7 @@ class PrinterCardV2 extends HTMLElement {
     btn.className = `cam-action-btn ${cssClass}`; btn.dataset.action = action;
     const inner = document.createElement("ha-icon"); inner.setAttribute("icon", icon);
     btn.appendChild(inner);
-    btn.addEventListener("click", (e) => { e.stopPropagation(); this._doAction(action); });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); this._doAction(btn.dataset.action); });
     return btn;
   }
 
@@ -864,9 +933,11 @@ class PrinterCardV2 extends HTMLElement {
   }
 
   _doAction(action) {
-    const c = this._config;
-    if (action === "power-on") this._svc("homeassistant", "turn_on", { entity_id: c.power_switch_entity });
-    if (action === "power-off") this._svc("homeassistant", "turn_off", { entity_id: c.power_switch_entity });
+    const entityId = this._config.power_switch_entity;
+    if (!entityId || !this._hass) return;
+    const effectiveAction = action || (this._isPowerSwitchOn() ? "power-off" : "power-on");
+    if (effectiveAction === "power-on") this._svc("homeassistant", "turn_on", { entity_id: entityId });
+    if (effectiveAction === "power-off") this._svc("homeassistant", "turn_off", { entity_id: entityId });
   }
   _svc(domain, service, data) { if (this._hass) this._hass.callService(domain, service, data); }
 

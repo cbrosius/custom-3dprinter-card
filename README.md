@@ -2,7 +2,7 @@
 
 Eine Home Assistant Custom Card für 3D-Drucker mit nativen HA-Komponenten.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Home Assistant](https://img.shields.io/badge/home%20assistant-2025.10.0%2B-blue)
 
@@ -17,10 +17,10 @@ Eine Home Assistant Custom Card für 3D-Drucker mit nativen HA-Komponenten.
 ## Status-Ansichten
 
 ### Unavailable (Ausgeschaltet)
-- Header mit Drucker-Bild/Icon, Name, Status und Power-ON Button
+- Header mit Drucker-Bild/Icon, Name, Status und Power-Button (Status/Farbe/Aktion abhängig von `power_switch_entity`)
 
 ### Idle (Bereit)
-- Header mit Name, Status und Power-OFF Button
+- Header mit Name, Status und Power-Button (Status/Farbe/Aktion abhängig von `power_switch_entity`)
 - Kamera (volle Breite)
 - Temperatur-Kacheln: Druckbett, Nozzle
 
@@ -41,25 +41,28 @@ Eine Home Assistant Custom Card für 3D-Drucker mit nativen HA-Komponenten.
 
 ## Installation
 
-### HACS (Home Assistant Community Store)
+### Home Assistant Marketplace (ab HA 2026.11) / HACS
 
-1. Öffne HACS in Home Assistant
-2. Gehe zu "Frontend" → "Benutzerdefinierte Repositories"
-3. Füge die URL dieses Repositories hinzu
-4. Wähle "Lovelace" als Kategorie
-5. Installiere die Card
-6. Lade die Ressourcen neu oder starte Home Assistant neu
+1. Öffne **Einstellungen** → **Marketplace** in Home Assistant (bzw. **HACS** in älteren HA-Versionen)
+2. Öffne das Drei-Punkte-Menü oben rechts → **Benutzerdefinierte Repositories**
+3. Füge die URL dieses Repositories (`https://github.com/cbrosius/custom-3dprinter-card`) hinzu
+4. Wähle **Dashboard** (bzw. **Lovelace**) als Kategorie
+5. Installiere die **Custom 3D Printer Card**
+6. Lade den Browser neu
+
+> **Automatische Pfad-Migration (`/hacsfiles/` → `/local/community/`):**  
+> Beim Laden der Karte durch einen Administrator prüft die Karte automatisch die in Home Assistant (UI/Storage-Modus) hinterlegten Dashboard-Ressourcen und migriert veraltete `/hacsfiles/...`-URLs für `printer-card-v2.js` selbstständig auf den neuen Standardpfad `/local/community/...`.
 
 ### Manuelle Installation
 
 1. Lade die Dateien aus dem `dist`-Ordner herunter
-2. Kopiere sie in das Verzeichnis `config/www/community/custom-printer-card/`
-3. Füge folgende Ressourcen in deine Lovelace-Dashboard-Konfiguration ein:
+2. Kopiere sie in das Verzeichnis `config/www/community/custom-3dprinter-card/`
+3. Füge folgende Ressource in deine Dashboard-Ressourcen (`Einstellungen → Dashboards → Ressourcen` oder YAML) ein:
 
 ```yaml
 resources:
   - type: module
-    url: /hacsfiles/custom-printer-card/printer-card-v2.js
+    url: /local/community/custom-3dprinter-card/printer-card-v2.js
 ```
 
 ## Konfiguration
